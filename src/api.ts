@@ -24,29 +24,29 @@ export class llmAPI {
   private attachedFiles: string[] = [];
   
   constructor() {
-    if (process.env.DEEPSEEK_API_KEY) {
-      // ============== DeepSeek ========================
-      this.llm = LLM.DeepSeek;
-      this.apiKey = process.env.DEEPSEEK_API_KEY;
+    this.llm = process.env.DEEPSEEK_API_KEY ? LLM.DeepSeek :
+      (process.env.OPENAI_API_KEY ? LLM.ChatGPT : LLM.Ollama);
 
-      this.url = 'https://api.deepseek.com/chat/completions';
-      this.model = 'deepseek-chat';
-    } else if (process.env.OPENAI_API_KEY) {
-      // ============== ChatGPT =========================
-      this.llm = LLM.ChatGPT;
-      this.apiKey = process.env.OPENAI_API_KEY;
+    switch (this.llm) {
+      case LLM.Ollama:
+        this.model  = 'deepseek-coder:6.7b';
+        this.apiKey = '';
+        this.url    = process.env.OLLAMA_HOST ?
+          process.env.OLLAMA_HOST :
+          'http://localhost:11434/api/chat/';
+        break;
 
-      this.url = 'https://...';
-      this.model = '???';
-    } else {
-      // ============== Ollama ==========================
-      this.llm = LLM.Ollama;
-      this.apiKey = '';
-
-      this.url = 'http://localhost:11434/api/chat/';
-      if (process.env.OLLAMA_HOST)
-        this.url = process.env.OLLAMA_HOST;
-      this.model = 'deepseek-coder:6.7b';
+      case LLM.DeepSeek:
+        this.model  = 'deepseek-chat';
+        this.url    = 'https://api.deepseek.com/chat/completions';
+        this.apiKey = process.env.DEEPSEEK_API_KEY!;
+        break;
+      
+      case LLM.ChatGPT:
+        this.model  = '???';
+        this.url    = 'https://...';
+        this.apiKey = process.env.OPENAI_API_KEY!;
+        break;
     }
 
     this.clearMessages();
