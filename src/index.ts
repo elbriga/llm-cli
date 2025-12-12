@@ -30,9 +30,15 @@ async function main() {
   while (true) {
     const line = await rl.question("LLM> ");
 
-    if (line.trim().toLowerCase() === "/exit") {
-      console.log("Saindo...");
-      break;
+    if (line.substring(0, 1) == '/') {
+      const command = line.trim().toLowerCase();
+
+      if (command === "/exit" || command == '/q') {
+        console.log("Exit");
+        break;
+      }
+
+      continue;
     }
 
     // console.log("Você digitou:", line);
@@ -41,7 +47,8 @@ async function main() {
       content: line
     });
     
-    const response = await api.call(messages);
+    const response = await api.call(messages, (chunk) => { process.stdout.write(chunk); });
+
     messages.push({
       role: 'assistant',
       content: response.content
