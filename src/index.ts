@@ -7,7 +7,7 @@ async function main() {
   const api = new llmAPI();
   api.attachFile('src/api.ts');
   
-  initText();
+  console.log("Digite algo (ou 'exit' para sair):");
   
   const rl = createInterface({ input, output });
   while (true) {
@@ -15,9 +15,12 @@ async function main() {
     if (!line) continue;
 
     if (line.substring(0, 1) == '/') {
-      if (handleCommands(line.trim().toLowerCase())) {
+      const command = line.trim().toLowerCase();
+      if (command === "/exit" || command == '/q') {
+        console.log("Exit");
         break;
       }
+
       continue;
     }
 
@@ -26,17 +29,5 @@ async function main() {
 
   rl.close();
 }
+
 main();
-
-function initText() {
-  console.log("Digite algo (ou 'exit' para sair):");
-}
-
-function handleCommands(command: string): number {
-  if (command === "/exit" || command == '/q') {
-    console.log("Exit");
-    return 1;
-  }
-
-  return 0;
-}
