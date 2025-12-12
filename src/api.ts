@@ -3,41 +3,51 @@ import { AxiosRequestConfig } from 'axios';
 import * as fs from 'fs';
 import chalk from 'chalk';
 
+enum LLM {
+  Ollama,
+  DeepSeek,
+  ChatGPT,
+}
 interface Message {
   role: string;
   content: string | { type: string, text: string }[];
 }
 
 export class llmAPI {
+  private llm: LLM;
   private url: string;
   private model: string;
+  private apiKey: string;
 
   private defaultInstruction = 'You are a helpful assistant';
-
-  // TODO :: Alterar para llm = 'DeepSeek', ...
-  private isDeepSeek: boolean;
-  private isOllama: boolean;
-  private isChatGPT: boolean;
-
-  private urlDeepSeek = 'https://api.deepseek.com/chat/completions';
-  private urlOllama   = 'http://localhost:11434/api/chat/';
-  //private urlChatGPT  = 'https://...';
-  
-  private DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
-
   private messages: Message[] = [];
   private attachedFiles: string[] = [];
   
   constructor() {
-    this.isDeepSeek = !!this.DEEPSEEK_API_KEY;
-    this.isOllama = !this.isDeepSeek;
-    this.isChatGPT = false;
+    if (process.env.DEEPSEEK_API_KEY) {
+      // ============== DeepSeek ========================
+      this.llm = LLM.DeepSeek;
+      this.apiKey = process.env.DEEPSEEK_API_KEY;
 
-    if (process.env.OLLAMA_HOST)
-      this.urlOllama = process.env.OLLAMA_HOST;
+      this.url = 'https://api.deepseek.com/chat/completions';
+      this.model = 'deepseek-chat';
+    } else if (process.env.OPENAI_API_KEY) {
+      // ============== ChatGPT =========================
+      this.llm = LLM.ChatGPT;
+      this.apiKey = process.env.OPENAI_API_KEY;
 
-    this.url = this.isDeepSeek ? this.urlDeepSeek : this.urlOllama;
-    this.model = this.isDeepSeek ? 'deepseek-chat' : 'deepseek-coder:6.7b';
+      this.url = 'https://...';
+      this.model = '???';
+    } else {
+      // ============== Ollama ==========================
+      this.llm = LLM.Ollama;
+      this.apiKey = '';
+
+      this.url = 'http://localhost:11434/api/chat/';
+      if (process.env.OLLAMA_HOST)
+        this.url = process.env.OLLAMA_HOST;
+      this.model = 'deepseek-coder:6.7b';
+    }
 
     this.clearMessages();
   }
@@ -74,7 +84,7 @@ export class llmAPI {
     const postOpts: AxiosRequestConfig = {
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.DEEPSEEK_API_KEY}`,
+        'Authorization': `Bearer ${this.apiKey}`,
       },
       responseType: 'stream',
     };
@@ -124,31 +134,36 @@ export class llmAPI {
             try {
               const lines = chunk.toString().split('\n');
               for (const line of lines) {
-                if (this.isDeepSeek) {
-                  if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-                    const jsonData = JSON.parse(line.substring(6));
-                    const content = jsonData.choices?.[0]?.delta?.content || '';
-                    if (content) {
-                      // process.stdout.write(content);
-                      fullContent += content;
-                      onChunk(content);
-                    }
-                  }
-                } else if (this.isOllama) {
-                  if (line) {
-                    const jsonData = JSON.parse(line);
-                    if (jsonData.done) {
-                      // TODO get statistics
-                      // console.log(jsonData);
-                    } else {
-                      const content = jsonData.message?.content || '';
+                switch (this.llm) {
+                  case LLM.DeepSeek:
+                  case LLM.ChatGPT:
+                    if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                      const jsonData = JSON.parse(line.substring(6));
+                      const content = jsonData.choices?.[0]?.delta?.content || '';
                       if (content) {
                         // process.stdout.write(content);
                         fullContent += content;
                         onChunk(content);
                       }
                     }
-                  }
+                    break;
+
+                  case LLM.Ollama:
+                    if (line) {
+                      const jsonData = JSON.parse(line);
+                      if (jsonData.done) {
+                        // TODO get statistics
+                        // console.log(jsonData);
+                      } else {
+                        const content = jsonData.message?.content || '';
+                        if (content) {
+                          // process.stdout.write(content);
+                          fullContent += content;
+                          onChunk(content);
+                        }
+                      }
+                    }
+                    break;
                 }
               }
             } catch (e) {
