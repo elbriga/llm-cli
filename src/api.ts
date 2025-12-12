@@ -12,6 +12,8 @@ export class llmAPI {
   private url: string;
   private model: string;
 
+  private defaultInstruction = 'You are a helpful assistant';
+
   // TODO :: Alterar para llm = 'DeepSeek', ...
   private isDeepSeek: boolean;
   private isOllama: boolean;
@@ -23,6 +25,7 @@ export class llmAPI {
   
   private DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
 
+  private messages: Message[] = [];
   private attachedFiles: string[] = [];
   
   constructor() {
@@ -35,11 +38,30 @@ export class llmAPI {
 
     this.url = this.isDeepSeek ? this.urlDeepSeek : this.urlOllama;
     this.model = this.isDeepSeek ? 'deepseek-chat' : 'deepseek-coder:6.7b';
+
+    this.clearMessages();
   }
 
-  async call(messages: Message[], onChunk: (chunk: string) => void): Promise<{ content: string }> {
-    const postMessages = [...messages];
+  async newMessage(message: string, onChunk: (chunk: string) => void) {
+    if (!message) return;
+        
+    this.messages.push({
+      role: 'user',
+      content: message
+    });
 
+    const response = await this.executeRequest(this.messages, onChunk);
+
+    this.messages.push({
+      role: 'assistant',
+      content: response.content
+    });
+  }
+
+  private async executeRequest(messages: Message[], onChunk?: (chunk: string) => void): Promise<{ content: string }> {
+    const isStrem = !!onChunk;
+
+    const postMessages = [...messages];
     if (this.attachedFiles)
       this.addFilesToMessages(postMessages);
 
@@ -67,72 +89,83 @@ export class llmAPI {
     try {
       const response = await axios.post(this.url, postData, postOpts);
 
-      const streamOK = response.data?.on ?? false;
-      if (!streamOK) {
-        return { content: "API ERROR!" };
-      }   
+      if (!isStrem) {
+        const content =
+          response.data?.choices?.[0]?.message?.content ?? // Cloud
+          response.data?.message?.content;                 // Ollama
 
-      // TODO : use reject
-      return new Promise((resolve, reject) => {
-        // let receivedData = false;
-        let fullContent = "";
+        return {
+          content,
+          //usage: await this.getUsage(requestMessages, content)
+        };
+      } else {
+        const streamOK = response.data?.on ?? false;
+        if (!streamOK) {
+          return { content: "API ERROR!" };
+        }   
 
-        response.data.on('data', (chunk: Buffer) => {
-          // console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
-          // console.log(chunk);
-          // console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
+        // TODO : use reject
+        return new Promise((resolve, reject) => {
+          // let receivedData = false;
+          let fullContent = "";
 
-          // if (!receivedData) {
-          //   console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
-          //   console.log("Handling stream...");
-          //   console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
-          //   receivedData = true;
-          // }
+          response.data.on('data', (chunk: Buffer) => {
+            // console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
+            // console.log(chunk);
+            // console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
 
-          try {
-            const lines = chunk.toString().split('\n');
-            for (const line of lines) {
-              if (this.isDeepSeek) {
-                if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-                  const jsonData = JSON.parse(line.substring(6));
-                  const content = jsonData.choices?.[0]?.delta?.content || '';
-                  if (content) {
-                    // process.stdout.write(content);
-                    fullContent += content;
-                    onChunk(content);
-                  }
-                }
-              } else if (this.isOllama) {
-                if (line) {
-                  const jsonData = JSON.parse(line);
-                  if (jsonData.done) {
-                    // TODO get statistics
-                    // console.log(jsonData);
-                  } else {
-                    const content = jsonData.message?.content || '';
+            // if (!receivedData) {
+            //   console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
+            //   console.log("Handling stream...");
+            //   console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
+            //   receivedData = true;
+            // }
+
+            try {
+              const lines = chunk.toString().split('\n');
+              for (const line of lines) {
+                if (this.isDeepSeek) {
+                  if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                    const jsonData = JSON.parse(line.substring(6));
+                    const content = jsonData.choices?.[0]?.delta?.content || '';
                     if (content) {
                       // process.stdout.write(content);
                       fullContent += content;
                       onChunk(content);
                     }
                   }
+                } else if (this.isOllama) {
+                  if (line) {
+                    const jsonData = JSON.parse(line);
+                    if (jsonData.done) {
+                      // TODO get statistics
+                      // console.log(jsonData);
+                    } else {
+                      const content = jsonData.message?.content || '';
+                      if (content) {
+                        // process.stdout.write(content);
+                        fullContent += content;
+                        onChunk(content);
+                      }
+                    }
+                  }
                 }
               }
+            } catch (e) {
+              // ignore JSON parsing errors
             }
-          } catch (e) {
-            // ignore JSON parsing errors
-          }
-        });
+          });
 
-        response.data.on('end', () => {
-          console.log("\n");
-          // console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
-          // console.log("END: Stream finished.");
-          // console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
+          response.data.on('end', () => {
+            console.log("\n");
+            // console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
+            // console.log("END: Stream finished.");
+            // console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
 
-          resolve({ content: fullContent });
+            resolve({ content: fullContent });
+          });
         });
-      });
+      }
     } catch (error: any) {
       // if (error.response) {
       //   console.error("DeepSeek API error response:", error.response.status, error.response.data);
@@ -145,6 +178,14 @@ export class llmAPI {
 
       return { content: 'API Error!' };
     }
+  }
+
+  clearMessages() {
+    this.messages = [];
+    this.messages.push({
+      role: "system",
+      content: this.defaultInstruction
+    });
   }
 
   attachFile(file: string) {
