@@ -37,28 +37,28 @@ export class llmAPI {
       responseType: 'stream',
     };
 
-    console.log('------------------------==== Request ===========>>>>>>>>');
-    console.log(`POST URL: ${this.url}`)
-    console.log('------------------------========================>>>>>>>>');
-    console.dir(postData, {depth:2});
-    console.dir(postOpts, {depth:2});
-    console.log('------------------------========================>>>>>>>>');
+    // console.log('------------------------==== Request ===========>>>>>>>>');
+    // console.log(`POST URL: ${this.url}`)
+    // console.log('------------------------========================>>>>>>>>');
+    // console.dir(postData, {depth:2});
+    // console.dir(postOpts, {depth:2});
+    // console.log('------------------------========================>>>>>>>>');
 
     const response = await axios.post(this.url, postData, postOpts);
 
     
 
     return new Promise((resolve, reject) => {
-      let receivedData = false;
+      // let receivedData = false;
       let fullContent = "";
 
       response.data.on('data', (chunk: any) => {
-        if (!receivedData) {
-          console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
-          console.log("Handling stream...");
-          console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
-          receivedData = true;
-        }
+        // if (!receivedData) {
+        //   console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
+        //   console.log("Handling stream...");
+        //   console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
+        //   receivedData = true;
+        // }
 
         const lines = chunk.toString().split('\n');
         for (const line of lines) {
@@ -75,10 +75,10 @@ export class llmAPI {
 
       response.data.on('end', () => {
         console.log("\n");
-        console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
-        console.log("END: Stream finished.");
-        console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
-        
+        // console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
+        // console.log("END: Stream finished.");
+        // console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
+
         resolve({ content: fullContent });
       });
     });
