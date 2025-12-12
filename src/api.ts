@@ -1,15 +1,18 @@
 import axios from 'axios';
 import { AxiosRequestConfig } from 'axios';
+import * as fs from 'fs';
+import chalk from 'chalk';
 
 interface Message {
   role: string;
-  content: string;
+  content: string | { type: string, text: string }[];
 }
 
 export class llmAPI {
   private url: string;
   private model: string;
 
+  // TODO :: Alterar para llm = 'DeepSeek', ...
   private isDeepSeek: boolean;
   private isOllama: boolean;
   private isChatGPT: boolean;
@@ -19,6 +22,8 @@ export class llmAPI {
   //private urlChatGPT  = 'https://...';
   
   private DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
+
+  private attachedFiles: string[] = [];
   
   constructor() {
     this.isDeepSeek = !!this.DEEPSEEK_API_KEY;
@@ -33,9 +38,14 @@ export class llmAPI {
   }
 
   async call(messages: Message[], onChunk: (chunk: string) => void): Promise<{ content: string }> {
+    const postMessages = [...messages];
+
+    if (this.attachedFiles)
+      this.addFilesToMessages(postMessages);
+
     const postData = {
       model: this.model,
-      messages,
+      messages: postMessages,
       stream: true,
     }
 
@@ -50,180 +60,126 @@ export class llmAPI {
     console.log('------------------------==== Request ===========>>>>>>>>');
     console.log(`POST URL: ${this.url}`)
     console.log('------------------------========================>>>>>>>>');
-    console.dir(postData, {depth:2});
-    console.dir(postOpts, {depth:2});
+    console.dir(postData, {depth:4});
+    console.dir(postOpts, {depth:4});
     console.log('------------------------========================>>>>>>>>');
 
-    const response = await axios.post(this.url, postData, postOpts);
+    try {
+      const response = await axios.post(this.url, postData, postOpts);
 
-    const streamOK = response.data?.on ?? false;
+      const streamOK = response.data?.on ?? false;
+      if (!streamOK) {
+        return { content: "API ERROR!" };
+      }   
 
-if (!streamOK) {
-  return { content: "API ERROR!" };
-}   
+      // TODO : use reject
+      return new Promise((resolve, reject) => {
+        // let receivedData = false;
+        let fullContent = "";
 
-    return new Promise((resolve, reject) => {
-      // let receivedData = false;
-      let fullContent = "";
+        response.data.on('data', (chunk: Buffer) => {
+          // console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
+          // console.log(chunk);
+          // console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
 
-      response.data.on('data', (chunk: Buffer) => {
-        // console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
-        // console.log(chunk);
-        // console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
+          // if (!receivedData) {
+          //   console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
+          //   console.log("Handling stream...");
+          //   console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
+          //   receivedData = true;
+          // }
 
-        // if (!receivedData) {
-        //   console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
-        //   console.log("Handling stream...");
-        //   console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
-        //   receivedData = true;
-        // }
-
-        try {
-          const lines = chunk.toString().split('\n');
-          for (const line of lines) {
-            if (this.isDeepSeek) {
-              if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-                const jsonData = JSON.parse(line.substring(6));
-                const content = jsonData.choices?.[0]?.delta?.content || '';
-                if (content) {
-                  // process.stdout.write(content);
-                  fullContent += content;
-                  onChunk(content);
-                }
-              }
-            } else if (this.isOllama) {
-              if (line) {
-                const jsonData = JSON.parse(line);
-                if (jsonData.done) {
-                  // TODO get statistics
-                  // console.log(jsonData);
-                } else {
-                  const content = jsonData.message?.content || '';
+          try {
+            const lines = chunk.toString().split('\n');
+            for (const line of lines) {
+              if (this.isDeepSeek) {
+                if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                  const jsonData = JSON.parse(line.substring(6));
+                  const content = jsonData.choices?.[0]?.delta?.content || '';
                   if (content) {
                     // process.stdout.write(content);
                     fullContent += content;
                     onChunk(content);
                   }
                 }
+              } else if (this.isOllama) {
+                if (line) {
+                  const jsonData = JSON.parse(line);
+                  if (jsonData.done) {
+                    // TODO get statistics
+                    // console.log(jsonData);
+                  } else {
+                    const content = jsonData.message?.content || '';
+                    if (content) {
+                      // process.stdout.write(content);
+                      fullContent += content;
+                      onChunk(content);
+                    }
+                  }
+                }
               }
             }
+          } catch (e) {
+            // ignore JSON parsing errors
           }
-        } catch (e) {
-          // ignore JSON parsing errors
-        }
+        });
+
+        response.data.on('end', () => {
+          console.log("\n");
+          // console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
+          // console.log("END: Stream finished.");
+          // console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
+
+          resolve({ content: fullContent });
+        });
       });
+    } catch (error: any) {
+      // if (error.response) {
+      //   console.error("DeepSeek API error response:", error.response.status, error.response.data);
+      // } else if (error.request) {
+      //   console.error("DeepSeek API no response received:", error.request);
+      // } else {
+      //   console.error("Error setting up DeepSeek API request:", error.message);
+      // }
+      console.error("Full error:", error);
 
-      response.data.on('end', () => {
-        console.log("\n");
-        // console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
-        // console.log("END: Stream finished.");
-        // console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
-
-        resolve({ content: fullContent });
-      });
-    });
-  }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-async function main22() {
-  const STREAM = true;
-
-  const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
-
-  if (!DEEPSEEK_API_KEY) {
-    console.error("DEEPSEEK_API_KEY is not set in environment variables.");
-    process.exit(1);
+      return { content: 'API Error!' };
+    }
   }
 
-  try {
-    const response = await axios.post(
-      'https://api.deepseek.com/chat/completions',
-      {
-        messages: [
-          { role: "system", content: "You are a helpful assistant." },
-          { role: "user", content: "Hello!" },
-          {
-            role: 'system',
-            content: `File: src/cli.ts
-\`\`\`ts
-linha 1
-linha 2
-\`\`\``
-          }
-        ],
-        model: "deepseek-chat",
-        stream: STREAM,
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
-        },
-        responseType: 'stream',
+  attachFile(file: string) {
+    if (this.attachedFiles.includes(file)) {
+      return;
+    }
+
+    if (!fs.existsSync(file)) {
+      console.error(chalk.red(`Error: File not found: ${file}`));
+      return;
+    }
+
+    this.attachedFiles.push(file);
+  }
+  
+  private addFilesToMessages(messages: Message[]) {
+    for (const fileName of this.attachedFiles) {
+      if (!fs.existsSync(fileName)) {
+        console.error(chalk.red(`Error: File not found: ${fileName}`));
+        continue;
       }
-    );
 
-    if (!STREAM) {
-      console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
-      console.log("ASSISTANT: ", response.data?.choices?.[0].message?.content);
-      console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
-    } else {
-      console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
-      console.log("Handling stream...");
-      console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
-      response.data.on('data', (chunk: any) => {
-        // console.log("CHUNK: ", chunk.toString());
-        //data: {"id":"553b036d-1059-4a0b-8b24-24017641c874","object":"chat.completion.chunk","created":1765479108,"model":"deepseek-chat","system_fingerprint":"fp_eaab8d114b_prod0820_fp8_kvcache","choices":[{"index":0,"delta":{"content":" like"},"logprobs":null,"finish_reason":null}]}
-        const lines = chunk.toString().split('\n');
-        for (const line of lines) {
-          if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-            const jsonData = JSON.parse(line.substring(6));
-            const content = jsonData.choices[0]?.delta?.content || '';
-            if (content) {
-              process.stdout.write(content);
-            }
-          }
-        }
-      });
-      response.data.on('end', () => {
-        console.log("\n");
-        console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
-        console.log("END: Stream finished.");
-        console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
-      });
+      try {
+        const fileContent = fs.readFileSync(fileName, 'utf8');
+  
+        messages.push({
+          role: "user",
+          content: [
+            { type: "text", text: `Attached file: ${fileName}` },
+            { type: "text", text: fileContent }
+          ]
+        });
+      } catch (error) {
+        console.error(chalk.red(`Error reading file: ${fileName}`), error);
+      }
     }
-  } catch (error: any) {
-    if (error.response) {
-      console.error("DeepSeek API error response:", error.response.status, error.response.data);
-    } else if (error.request) {
-      console.error("DeepSeek API no response received:", error.request);
-    } else {
-      console.error("Error setting up DeepSeek API request:", error.message);
-    }
-    console.error("Full error:", error);
   }
 }
