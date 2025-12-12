@@ -22,7 +22,7 @@ export class llmAPI {
     this.url = this.DEEPSEEK_API_KEY ? this.urlDeepSeek : this.urlOllama;
   }
 
-  async call(messages: Message[]) {
+  async call(messages: Message[]): Promise<{ content: string }> {
     const postData = {
       model: "deepseek-chat",
       messages,
@@ -46,28 +46,41 @@ export class llmAPI {
 
     const response = await axios.post(this.url, postData, postOpts);
 
-    console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
-    console.log("Handling stream...");
-    console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
-    response.data.on('data', (chunk: any) => {
-      // console.log("CHUNK: ", chunk.toString());
-      //data: {"id":"553b036d-1059-4a0b-8b24-24017641c874","object":"chat.completion.chunk","created":1765479108,"model":"deepseek-chat","system_fingerprint":"fp_eaab8d114b_prod0820_fp8_kvcache","choices":[{"index":0,"delta":{"content":" like"},"logprobs":null,"finish_reason":null}]}
-      const lines = chunk.toString().split('\n');
-      for (const line of lines) {
-        if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-          const jsonData = JSON.parse(line.substring(6));
-          const content = jsonData.choices[0]?.delta?.content || '';
-          if (content) {
-            process.stdout.write(content);
+    
+
+    return new Promise((resolve, reject) => {
+      let receivedData = false;
+      let fullContent = "";
+
+      response.data.on('data', (chunk: any) => {
+        if (!receivedData) {
+          console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
+          console.log("Handling stream...");
+          console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
+          receivedData = true;
+        }
+
+        const lines = chunk.toString().split('\n');
+        for (const line of lines) {
+          if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+            const jsonData = JSON.parse(line.substring(6));
+            const content = jsonData.choices[0]?.delta?.content || '';
+            if (content) {
+              process.stdout.write(content);
+              fullContent += content;
+            }
           }
         }
-      }
-    });
-    response.data.on('end', () => {
-      console.log("\n");
-      console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
-      console.log("END: Stream finished.");
-      console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
+      });
+
+      response.data.on('end', () => {
+        console.log("\n");
+        console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
+        console.log("END: Stream finished.");
+        console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
+        
+        resolve({ content: fullContent });
+      });
     });
   }
 }

@@ -8,36 +8,47 @@ async function main() {
 
   const messages = [
     { role: "system", content: "You are a helpful assistant." },
-    { role: "user", content: "Analyze the file" },
-    {
-      role: 'system',
-      content: `File: src/cli.ts
-\`\`\`ts
-console.log('Hello World!');
-\`\`\``
-    }
+    // { role: "user", content: "Hi" },
+//     {
+//       role: 'system',
+//       content: `File: src/cli.ts
+// \`\`\`ts
+// console.log('Hello World!');
+// \`\`\``
+//     }
   ];
 
-  await api.call(messages);
+  
+  // console.log('----------;;;;;;;;;;;;;;;;;>>>>>>>>>>>');
+  // console.log(response.content);  
+  // console.log('----------;;;;;;;;;;;;;;;;;>>>>>>>>>>>');
 
-//   const rl = createInterface({ input, output });
+  const rl = createInterface({ input, output });
 
-//   console.log("Digite algo (ou 'exit' para sair):");
+  console.log("Digite algo (ou 'exit' para sair):");
 
-//   while (true) {
-//     const line = await rl.question("> ");
+  while (true) {
+    const line = await rl.question("LLM> ");
 
-//     if (line.trim().toLowerCase() === "exit") {
-//       console.log("Saindo...");
-//       break;
-//     }
+    if (line.trim().toLowerCase() === "/exit") {
+      console.log("Saindo...");
+      break;
+    }
 
-//     console.log("Você digitou:", line);
+    // console.log("Você digitou:", line);
+    messages.push({
+      role: 'user',
+      content: line
+    });
+    
+    const response = await api.call(messages);
+    messages.push({
+      role: 'assistant',
+      content: response.content
+    });
+  }
 
-
-//   }
-
-//   rl.close();
+  rl.close();
 }
 
 main();
