@@ -64,8 +64,8 @@ export class llmAPI {
     instruction: string,
     message: string,
     onChunk: (chunk: string) => void
-  ) {
-    if (!message) return;
+  ): Promise<string> {
+    if (!message) return "";
 
     this.messages.push({
       role: "user",
@@ -82,6 +82,8 @@ export class llmAPI {
       role: "assistant",
       content: response.content,
     });
+
+    return response.content;
   }
 
   async oneConversation(instruction: string, prompt: string): Promise<string> {
@@ -171,11 +173,9 @@ export class llmAPI {
             // console.log(chunk);
             // console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
 
-            // if (!receivedData) {
-            //   console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
-            //   console.log("Handling stream...");
-            //   console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
+            // if (onData && !receivedData) {
             //   receivedData = true;
+            //   onData();
             // }
 
             try {

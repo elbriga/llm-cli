@@ -6,10 +6,12 @@ import ora from "ora";
 
 import { llmAPI } from "./api.ts";
 import { Workspace } from "./workspace.ts";
+import { Diff } from "./diff.ts";
 
 export class CLI {
   private api = new llmAPI();
   private ws = new Workspace();
+  private diff = new Diff();
 
   private instruction =
     "You are DeepSeek Coder, an AI programming assistant.\n" +
@@ -20,8 +22,9 @@ export class CLI {
 
     const rl = createInterface({ input, output });
     while (true) {
-      const line = await rl.question("LLM> ");
+      let line = await rl.question("LLM> ");
       if (!line) continue;
+      console.log("");
 
       if (line.substring(0, 1) == "/") {
         const cmd = line.substring(1).trim().toLowerCase();
@@ -35,10 +38,30 @@ export class CLI {
         this.api.attachFile(file);
       }
       spinner.stop();
+      console.log("");
 
-      await this.api.newMessage(this.instruction, line, (chunk) => {
-        process.stdout.write(chunk);
-      });
+      spinner.start("Asking...");
+      let receivedData = false;
+      const response = await this.api.newMessage(
+        this.instruction,
+        line,
+        (chunk) => {
+          if (!receivedData) {
+            receivedData = true;
+            spinner.stop();
+            console.log("");
+          }
+          process.stdout.write(chunk);
+        }
+      );
+      console.log("");
+
+      const diffs = this.diff.parseDiffs(response);
+      if (diffs) {
+        spinner.start("Editing...");
+        // list editing files
+        line = await rl.question("<Will now edit the files! Press ENTER> ");
+      }
     }
   }
 
