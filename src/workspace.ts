@@ -8,20 +8,18 @@ export class Workspace {
 
   async askForIncludes(prompt: string, api: llmAPI): Promise<string[]> {
     const allFiles = this.listWorkdirFiles();
+    let history = api.getHistoryString();
+    if (history) history = `<HISTORY>\n${history}</HISTORY>\n`;
 
     const response = await api.oneConversation(
       "Based on the conversation history tell me which files you would like included to solve the user request.\n" +
         "Please inlcude a <FILES></FILES> tag in your response so I can parse it.\n" +
-        "<USER_REQUEST>" +
-        prompt +
-        "</USER_REQUEST>\n" +
-        "<CONVERSATION>\n" +
-        api.getHistoryString() +
-        "</CONVERSATION>\n" +
+        history +
         "Here are the users files on the workspace.\n" +
         "<WORKSPACE>\n" +
         allFiles.join("\n") +
-        "</WORKSPACE>\n"
+        "</WORKSPACE>\n",
+      prompt
     );
 
     let files: string[] = [];

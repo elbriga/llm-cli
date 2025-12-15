@@ -1,6 +1,8 @@
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
+
 import chalk from "chalk";
+import ora from "ora";
 
 import { llmAPI } from "./api.ts";
 import { Workspace } from "./workspace.ts";
@@ -23,10 +25,12 @@ export class CLI {
         continue;
       }
 
+      const spinner = ora("Thinking...").start();
       const files = await this.ws.askForIncludes(line, this.api);
       for (const file of files) {
         this.api.attachFile(file);
       }
+      spinner.stop();
 
       await this.api.newMessage(line, (chunk) => {
         process.stdout.write(chunk);

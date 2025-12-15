@@ -64,7 +64,11 @@ export class llmAPI {
       content: message,
     });
 
-    const response = await this.executeRequest(this.messages, onChunk);
+    const response = await this.executeRequest(
+      this.messages,
+      undefined,
+      onChunk
+    );
 
     this.messages.push({
       role: "assistant",
@@ -72,32 +76,40 @@ export class llmAPI {
     });
   }
 
-  async oneConversation(prompt: string, instruction?: string): Promise<string> {
+  async oneConversation(instruction: string, prompt: string): Promise<string> {
     const messages = [
-      {
-        role: "system",
-        content: instruction ?? this.defaultInstruction,
-      },
       {
         role: "user",
         content: prompt,
       },
     ];
 
-    const response = await this.executeRequest(messages, undefined, false);
+    const response = await this.executeRequest(
+      messages,
+      instruction,
+      undefined,
+      false
+    );
 
     return response.content;
   }
 
   private async executeRequest(
     messages: Message[],
+    instruction?: string,
     onChunk?: (chunk: string) => void,
     attachFiles?: boolean
   ): Promise<{ content: string }> {
     const isStream = !!onChunk;
     const doAttach = !(attachFiles === false);
 
-    const postMessages = [...messages];
+    const postMessages: Message[] = [...messages];
+    // Add SYSTEM role
+    postMessages.unshift({
+      role: "system",
+      content: instruction ?? this.defaultInstruction,
+    });
+
     if (doAttach && this.attachedFiles) this.addFilesToMessages(postMessages);
 
     const postData = {
@@ -225,10 +237,6 @@ export class llmAPI {
 
   clearMessages() {
     this.messages = [];
-    this.messages.push({
-      role: "system",
-      content: this.defaultInstruction,
-    });
   }
 
   attachFile(file: string) {
@@ -250,7 +258,7 @@ export class llmAPI {
       ret += `// ====${msg.role}====\n`;
       ret += `${msg.content}\n`;
     }
-    ret += `// ========\n`;
+    if (ret) ret += `// ========\n`;
     return ret;
   }
 
