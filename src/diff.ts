@@ -1,23 +1,19 @@
-export class Diff {
+/*export class Diff {
   private readonly re = /<DIFF>([\s\S]*?)<\/DIFF>/g;
 
-  parseDiffs(txt: string): { name: string; content: string }[] {
-    const result: { name: string; content: string }[] = [];
-    let match: RegExpExecArray | null;
+  parseDiffs(txt: string): string[] {
+    const result: string[] = [];
 
+    let match: RegExpExecArray | null;
     while ((match = this.re.exec(txt)) !== null) {
-      console.log("--------------==============>>>>>>");
-      console.log(match);
-      console.log("--------------==============>>>>>>");
-      const fileName = "";
-      result.push({ name: fileName, content: match[1] });
+      result.push(match[1]);
     }
 
     return result;
   }
-}
+}*/
 
-/*export class Diff {
+export class Diff {
   private readonly tagStart = "<DIFF>";
   private readonly tagEnd = "</DIFF>";
 
@@ -31,11 +27,11 @@ export class Diff {
       const offsetEnd = txt.indexOf(this.tagEnd, offset);
       if (offsetEnd === -1) break;
 
-      ret.push(txt.substring(offset, offsetEnd));
+      ret.push(txt.substring(offset, offsetEnd - 1));
 
       offset = offsetEnd + this.tagEnd.length;
     }
 
     return ret;
   }
-}*/
+}
