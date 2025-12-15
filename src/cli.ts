@@ -11,6 +11,10 @@ export class CLI {
   private api = new llmAPI();
   private ws = new Workspace();
 
+  private instruction =
+    "You are DeepSeek Coder, an AI programming assistant.\n" +
+    "Help with coding tasks and respond with unified diff enclosed in <DIFF></DIFF> so I can do file editing.";
+
   async execute() {
     console.log("Digite algo (ou 'exit' para sair):");
 
@@ -32,7 +36,7 @@ export class CLI {
       }
       spinner.stop();
 
-      await this.api.newMessage(line, (chunk) => {
+      await this.api.newMessage(this.instruction, line, (chunk) => {
         process.stdout.write(chunk);
       });
     }

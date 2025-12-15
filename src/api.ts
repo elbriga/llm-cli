@@ -56,7 +56,15 @@ export class llmAPI {
     this.clearMessages();
   }
 
-  async newMessage(message: string, onChunk: (chunk: string) => void) {
+  debugON() {
+    this.debug = true;
+  }
+
+  async newMessage(
+    instruction: string,
+    message: string,
+    onChunk: (chunk: string) => void
+  ) {
     if (!message) return;
 
     this.messages.push({
@@ -66,7 +74,7 @@ export class llmAPI {
 
     const response = await this.executeRequest(
       this.messages,
-      undefined,
+      instruction,
       onChunk
     );
 
