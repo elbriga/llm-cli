@@ -15,14 +15,25 @@ export class CLI {
 
   private instruction =
     "You are DeepSeek Coder, an AI programming assistant.\n" +
-    "Help with coding tasks and respond with unified diff enclosed in <DIFF></DIFF> so I can do file editing.";
+    "Help with coding tasks and follow best practices.\n";
+  //"If any file change is necessary respond with unified diff enclosed in <DIFF></DIFF> so I can do file editing.";
 
   async execute() {
+    this.api.debugON();
+    const r = await this.api.newMessage(
+      "Help the users with his tasks",
+      "How's the weather in Hangzhou Tomorrow",
+      (chunk) => console.log(chunk)
+    );
+    console.log("------------=======>>>>>");
+    console.log("RESP: ", r);
+    console.log("------------=======>>>>>");
+    return;
+
     console.log("Digite algo (ou 'exit' para sair):");
 
-    const rl = createInterface({ input, output });
     while (true) {
-      let line = await rl.question("LLM> ");
+      const line = await this.readLine("LLM");
       if (!line) continue;
       console.log("");
 
@@ -38,7 +49,6 @@ export class CLI {
         this.api.attachFile(file);
       }
       spinner.stop();
-      console.log("");
 
       spinner.start("Asking...");
       let receivedData = false;
@@ -54,13 +64,18 @@ export class CLI {
           process.stdout.write(chunk);
         }
       );
-      console.log("");
+      spinner.stop();
 
       const diffs = this.diff.parseDiffs(response);
-      if (diffs) {
-        spinner.start("Editing...");
+      if (diffs.length > 0) {
         // list editing files
-        line = await rl.question("<Will now edit the files! Press ENTER> ");
+        for (const diff of diffs) {
+          const line1 = diff.split("\n")?.[0];
+          console.log("-------------------==============>>>");
+          console.log(line1);
+          console.log("-------------------==============>>>");
+        }
+        await this.readLine("<Will now edit the files! Press ENTER");
       }
     }
   }
@@ -75,13 +90,28 @@ export class CLI {
         process.exit(0);
         break;
 
+      case "c":
       case "clear":
         this.api.clearMessages();
+        console.log(chalk.yellow("Messages Cleared"));
+        break;
+
+      case "d":
+      case "debug":
+        this.api.debugON();
+        console.log(chalk.red("DEBUG ON"));
         break;
 
       default:
         console.log(chalk.red(`Unknown Comamnd: ${command}`));
         break;
     }
+  }
+
+  private async readLine(prompt: string): Promise<string> {
+    const rl = createInterface({ input, output }); // Yes, calling inside the while, or else crashes!
+    const line = await rl.question(`${prompt}> `);
+    rl.close();
+    return line;
   }
 }

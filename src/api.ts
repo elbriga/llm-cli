@@ -18,6 +18,7 @@ export class llmAPI {
   private url: string;
   private model: string;
   private apiKey: string;
+  private maxTokens: number;
   private debug: boolean = false;
 
   private defaultInstruction = "You are a helpful assistant";
@@ -35,19 +36,22 @@ export class llmAPI {
       case LLM.Ollama:
         this.model = "deepseek-coder:6.7b";
         this.apiKey = "";
+        this.maxTokens = 64 * 1024;
         this.url = process.env.OLLAMA_HOST
           ? process.env.OLLAMA_HOST
           : "http://localhost:11434/api/chat/";
         break;
 
       case LLM.DeepSeek:
-        this.model = "deepseek-chat";
+        this.model = "deepseek-reasoner";
+        this.maxTokens = 64 * 1024;
         this.url = "https://api.deepseek.com/chat/completions";
         this.apiKey = process.env.DEEPSEEK_API_KEY!;
         break;
 
       case LLM.ChatGPT:
         this.model = "???";
+        this.maxTokens = 64 * 1024;
         this.url = "https://...";
         this.apiKey = process.env.OPENAI_API_KEY!;
         break;
@@ -63,7 +67,7 @@ export class llmAPI {
   async newMessage(
     instruction: string,
     message: string,
-    onChunk: (chunk: string) => void
+    onChunk?: (chunk: string) => void
   ): Promise<string> {
     if (!message) return "";
 
@@ -86,7 +90,10 @@ export class llmAPI {
     return response.content;
   }
 
-  async oneConversation(instruction: string, prompt: string): Promise<string> {
+  async oneConversation333(
+    instruction: string,
+    prompt: string
+  ): Promise<string> {
     const messages = [
       {
         role: "user",
@@ -98,6 +105,7 @@ export class llmAPI {
       messages,
       instruction,
       undefined,
+      undefined,
       false
     );
 
@@ -108,8 +116,9 @@ export class llmAPI {
     messages: Message[],
     instruction?: string,
     onChunk?: (chunk: string) => void,
+    onReasoning?: (chunk: string) => void,
     attachFiles?: boolean
-  ): Promise<{ content: string }> {
+  ): Promise<{ content: string; reasoning?: string }> {
     const isStream = !!onChunk;
     const doAttach = !(attachFiles === false);
 
@@ -125,7 +134,38 @@ export class llmAPI {
     const postData = {
       model: this.model,
       messages: postMessages,
+      max_tokens: this.maxTokens,
       stream: isStream,
+      thinking: { type: "enabled" },
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "get_date",
+            description: "Get the current date",
+            parameters: { type: "object", properties: {} },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "get_weather",
+            description:
+              "Get weather of a location, the user should supply the location and date.",
+            parameters: {
+              type: "object",
+              properties: {
+                location: { type: "string", description: "The city name" },
+                date: {
+                  type: "string",
+                  description: "The date in format YYYY-mm-dd",
+                },
+              },
+              required: ["location", "date"],
+            },
+          },
+        },
+      ],
     };
 
     const postOpts: AxiosRequestConfig = {
@@ -153,8 +193,15 @@ export class llmAPI {
           response.data?.choices?.[0]?.message?.content ?? // Cloud
           response.data?.message?.content; // Ollama
 
+        if (this.debug) {
+          console.log("--------==== Response ===========>>>>>>>>");
+          console.log("RESP: ", content, response.data?.choices?.[0]?.message);
+          console.log("--------==== Response ===========>>>>>>>>");
+        }
+
         return {
           content,
+          reasoning: "", // TODO
           //usage: await this.getUsage(requestMessages, content)
         };
       } else {
@@ -167,11 +214,12 @@ export class llmAPI {
         return new Promise((resolve, reject) => {
           // let receivedData = false;
           let fullContent = "";
+          let fullReasoning = "";
 
           response.data.on("data", (chunk: Buffer) => {
-            // console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
-            // console.log(chunk);
-            // console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
+            console.log("-------------===========>>>>>>>>>>>>>>>>>>>>>");
+            console.log(chunk.toString());
+            console.log("-------------===========>>>>>>>>>>>>>>>>>>>>>");
 
             // if (onData && !receivedData) {
             //   receivedData = true;
@@ -186,12 +234,20 @@ export class llmAPI {
                   case LLM.ChatGPT:
                     if (line.startsWith("data: ") && line !== "data: [DONE]") {
                       const jsonData = JSON.parse(line.substring(6));
+                      console.dir(jsonData, { depth: null });
                       const content =
                         jsonData.choices?.[0]?.delta?.content || "";
                       if (content) {
                         // process.stdout.write(content);
                         fullContent += content;
                         onChunk(content);
+                      }
+                      const reasoning =
+                        jsonData.choices?.[0]?.delta?.reasoning_content || "";
+                      if (reasoning) {
+                        // process.stdout.write(content);
+                        fullReasoning += reasoning;
+                        onReasoning?.(reasoning);
                       }
                     }
                     break;
@@ -220,12 +276,14 @@ export class llmAPI {
           });
 
           response.data.on("end", () => {
+            if (this.debug) {
+              console.log("--------==== Response ===========>>>>>>>>");
+              console.log("R:", fullContent);
+              console.log("--------==== Response ===========>>>>>>>>");
+            }
             console.log("\n");
-            // console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
-            // console.log("END: Stream finished.");
-            // console.log("-------------------========================>>>>>>>>>>>>>>>>>>>>>");
 
-            resolve({ content: fullContent });
+            resolve({ content: fullContent, reasoning: fullReasoning });
           });
         });
       }
@@ -278,7 +336,9 @@ export class llmAPI {
       }
 
       try {
-        const fileContent = fs.readFileSync(fileName, "utf8");
+        let fileContent = fs.readFileSync(fileName, "utf8");
+        fileContent = fileContent.replace(/<DIFF>/gi, "<___D_I_F_F___>");
+        fileContent = fileContent.replace(/<\/DIFF>/gi, "</___D_I_F_F___>");
 
         messages.push({
           role: "user",
