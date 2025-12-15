@@ -13,6 +13,7 @@ export class Workspace {
 
     const response = await api.oneConversation(
       "Based on the conversation history tell me which files you would like included to solve the user request.\n" +
+        "If the user specifies one or more files or patterns using the '@' as a marker include only the requested files.\n" +
         "Please inlcude a <FILES></FILES> tag in your response so I can parse it.\n" +
         history +
         "Here are the users files on the workspace.\n" +
