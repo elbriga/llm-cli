@@ -26,30 +26,20 @@ export class Workspace {
 
     let files: string[] = [];
     if (response.includes("<FILES>") && response.includes("</FILES>")) {
-      const start = response.indexOf("<FILES>");
+      const start = response.indexOf("<FILES>") + 7;
       const end = response.indexOf("</FILES>");
 
       const strFiles = response.substring(start, end);
       for (const file of strFiles.split("\n")) {
-        files.push(file);
+        if (file) files.push(file);
       }
     }
-    // console.log("========================------------------->>>>>>>>>>");
-    // console.log(response);
-    // console.log("========================------------------->>>>>>>>>>");
     return files;
   }
 
   private listWorkdirFiles(): string[] {
     // Encontrar arquivos pelo pattern (ex: "src/*.ts")
     const files = globSync(this.includeGlob);
-
-    console.log(files.join(" - "));
-
-    // for (const filePath of files) {
-    //   this.attachFile(filePath, requestMessages);
-    // }
-
     return files;
   }
 }

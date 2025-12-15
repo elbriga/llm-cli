@@ -18,6 +18,7 @@ export class llmAPI {
   private url: string;
   private model: string;
   private apiKey: string;
+  private debug: boolean = false;
 
   private defaultInstruction = "You are a helpful assistant";
   private messages: Message[] = [];
@@ -113,12 +114,14 @@ export class llmAPI {
       ...(isStream && { responseType: "stream" }),
     };
 
-    console.log("------------------------==== Request ===========>>>>>>>>");
-    console.log(`POST URL: ${this.url}`);
-    console.log("------------------------========================>>>>>>>>");
-    console.dir(postData, { depth: 4 });
-    console.dir(postOpts, { depth: 4 });
-    console.log("------------------------========================>>>>>>>>");
+    if (this.debug) {
+      console.log("------------------------==== Request ===========>>>>>>>>");
+      console.log(`POST URL: ${this.url}`);
+      console.log("------------------------========================>>>>>>>>");
+      console.dir(postData, { depth: 4 });
+      console.dir(postOpts, { depth: 4 });
+      console.log("------------------------========================>>>>>>>>");
+    }
 
     try {
       const response = await axios.post(this.url, postData, postOpts);

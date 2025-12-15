@@ -24,9 +24,7 @@ export class CLI {
       }
 
       const files = await this.ws.askForIncludes(line, this.api);
-
       for (const file of files) {
-        console.log("File: ", file);
         this.api.attachFile(file);
       }
 
