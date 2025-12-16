@@ -13,6 +13,8 @@ enum LLM {
 interface Message {
   role: string;
   content: string | { type: string; text: string }[];
+  reasoning_content?: string | { type: string; text: string }[];
+  tool_calls?: Array<any>;
 }
 
 export class llmAPI {
@@ -94,12 +96,14 @@ export class llmAPI {
 
       if (!response.tool_calls?.length) break;
 
+      this.messages.push({
+        role: "assistant",
+        content: response.content,
+        reasoning_content: response.reasoning,
+        tool_calls: response.tool_calls,
+      });
+
       const toolsMessages = await this.tools.execute(response.tool_calls); // TODO onTools para feedback
-
-      console.log("--------==== toolsMessages ===========>>>>>>>>");
-      console.dir(toolsMessages, { depth: null });
-      console.log("--------==== Response ===========>>>>>>>>");
-
       this.messages.push(...toolsMessages);
     }
 
@@ -173,8 +177,8 @@ export class llmAPI {
       console.log("------------------------==== Request ===========>>>>>>>>");
       console.log(`POST URL: ${this.url}`);
       console.log("------------------------========================>>>>>>>>");
-      console.dir(postData, { depth: 4 });
-      console.dir(postOpts, { depth: 4 });
+      console.dir(postData, { depth: null });
+      console.dir(postOpts, { depth: null });
       console.log("------------------------========================>>>>>>>>");
     }
 
@@ -189,7 +193,9 @@ export class llmAPI {
 
         if (this.debug) {
           console.log("--------==== Response ===========>>>>>>>>");
-          console.log("RESP: ", content, response.data?.choices?.[0]?.message);
+          console.dir(response.data?.choices?.[0]?.message, {
+            depth: null,
+          });
           console.log("--------==== Response ===========>>>>>>>>");
         }
 
@@ -204,13 +210,7 @@ export class llmAPI {
           throw { error: "API ERROR !response.data?.on" };
         }
 
-        const result = await this.handleStream(response, onChunk, onReasoning);
-
-        ret = {
-          content: result.content,
-          reasoning: result.reasoning,
-          tool_calls: result.tool_calls,
-        };
+        ret = await this.handleStream(response, onChunk, onReasoning);
       }
 
       return ret;
@@ -252,7 +252,9 @@ export class llmAPI {
               case LLM.ChatGPT:
                 if (line.startsWith("data: ") && line !== "data: [DONE]") {
                   const jsonData = JSON.parse(line.substring(6));
-                  console.dir(jsonData, { depth: null });
+                  // if (this.debug) {
+                  //   console.dir(jsonData, { depth: null });
+                  // }
 
                   const content = jsonData.choices?.[0]?.delta?.content || "";
                   if (content) {
@@ -315,7 +317,7 @@ export class llmAPI {
         };
 
         if (this.debug) {
-          console.log("--------==== Response ===========>");
+          console.log("\n--------==== Response ===========>");
           console.dir(ret, { depth: null });
           console.log("--------==== Response ===========>");
         }

@@ -23,10 +23,11 @@ export class CLI {
     const r = await this.api.newMessage(
       "Help the users with his tasks",
       "How's the weather in Hangzhou Tomorrow",
-      (chunk) => console.log(chunk)
+      (chunk) => process.stdout.write(chunk), // TODO tentar sync
+      (chunk) => process.stdout.write(chalk.blue(chunk))
     );
     console.log("------------=======>>>>>");
-    console.log("RESP: ", r);
+    console.dir(r, { depth: null });
     console.log("------------=======>>>>>");
     return;
 
