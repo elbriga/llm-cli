@@ -239,6 +239,8 @@ export class llmAPI {
       let fullReasoning = "";
       let toolCalls: Array<any> = [];
 
+      let toolCall;
+
       response.data.on("data", (chunk: Buffer) => {
         // console.log("-------------===========>>>>>>>>>>>>>>>>>>>>>");
         // console.log(chunk.toString());
@@ -252,9 +254,9 @@ export class llmAPI {
               case LLM.ChatGPT:
                 if (line.startsWith("data: ") && line !== "data: [DONE]") {
                   const jsonData = JSON.parse(line.substring(6));
-                  // if (this.debug) {
-                  //   console.dir(jsonData, { depth: null });
-                  // }
+                  if (this.debug) {
+                    console.dir(jsonData, { depth: null });
+                  }
 
                   const content = jsonData.choices?.[0]?.delta?.content || "";
                   if (content) {
@@ -269,20 +271,35 @@ export class llmAPI {
                     onReasoning?.(reasoning);
                   }
 
-                  const tool_calls =
-                    jsonData.choices?.[0]?.delta?.tool_calls ?? [];
-                  for (const tool_call of tool_calls) {
+                  const tool_call =
+                    jsonData.choices?.[0]?.delta?.tool_calls?.[0];
+
+                  if (tool_call) {
                     const funcionName = tool_call.function?.name ?? "";
+                    const funcionArgs = tool_call.function?.arguments ?? "";
                     if (funcionName) {
-                      toolCalls.push(tool_call);
+                      // Start the args capture
+                      toolCall = tool_call;
+                      toolCall.function.arguments = funcionArgs;
+                    } else if (toolCall) {
+                      toolCall.function.arguments += funcionArgs;
                     }
                   }
 
-                  // const finish_reason =
-                  //   jsonData.choices?.[0]?.finish_reason ?? "";
-                  // if (finish_reason) {
-                  //   // TODO
-                  // }
+                  const finish_reason =
+                    jsonData.choices?.[0]?.finish_reason ?? "";
+                  if (finish_reason) {
+                    switch (finish_reason) {
+                      case "tool_calls":
+                        toolCalls.push(toolCall);
+                        break;
+                    }
+
+                    const usage = jsonData.usage ?? "";
+                    if (usage) {
+                      // TODO
+                    }
+                  }
                 }
                 break;
 

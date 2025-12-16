@@ -19,7 +19,7 @@ export class CLI {
   //"If any file change is necessary respond with unified diff enclosed in <DIFF></DIFF> so I can do file editing.";
 
   async execute() {
-    this.api.debugON();
+    // this.api.debugON();
     const r = await this.api.newMessage(
       "Help the users with his tasks",
       "How's the weather in Hangzhou Tomorrow",

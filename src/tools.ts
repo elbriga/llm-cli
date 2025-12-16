@@ -11,11 +11,21 @@ export class Tools {
       const functionName = toolCall.function?.name ?? "";
       const func = this.TOOL_CALL_MAP[functionName] ?? false;
       if (func) {
-        const toolResponse = func(); // TODO args
+        const functionArgStr = toolCall.function.arguments ?? "{}";
+        let funcionArgs = {};
+        try {
+          funcionArgs = JSON.parse(functionArgStr);
+        } catch (e) {
+          funcionArgs = {};
+        }
+        // console.log("===== CALLING =====---------->>");
+        // console.log(functionName);
+        // console.dir(toolCall, { depth: null });
+        // console.log("===================---------->>");
+        const toolResponse = func(funcionArgs); // TODO args
         ret.push({
           role: "tool",
           name: functionName,
-          arguments: "", // TODO args
           tool_call_id: toolCall.id,
           content: toolResponse,
         });
@@ -61,7 +71,7 @@ export class Tools {
   get_date_mock() {
     return "2025-12-01";
   }
-  get_weather_mock(location, date) {
-    return "Cloudy 7~13°C";
+  get_weather_mock({ location, date }) {
+    return `Cloudy 7~13°C at ${location} on ${date}`;
   }
 }
