@@ -3,6 +3,8 @@ import { AxiosRequestConfig } from "axios";
 import * as fs from "fs";
 import chalk from "chalk";
 
+import { Tools } from "./tools.ts";
+
 enum LLM {
   Ollama,
   DeepSeek,
@@ -19,7 +21,10 @@ export class llmAPI {
   private model: string;
   private apiKey: string;
   private maxTokens: number;
+
   private debug: boolean = false;
+
+  private tools = new Tools();
 
   private defaultInstruction = "You are a helpful assistant";
   private messages: Message[] = [];
@@ -67,7 +72,8 @@ export class llmAPI {
   async newMessage(
     instruction: string,
     message: string,
-    onChunk?: (chunk: string) => void
+    onChunk?: (chunk: string) => void,
+    onReasoning?: (chunk: string) => void
   ): Promise<string> {
     if (!message) return "";
 
@@ -76,11 +82,26 @@ export class llmAPI {
       content: message,
     });
 
-    const response = await this.executeRequest(
-      this.messages,
-      instruction,
-      onChunk
-    );
+    let response;
+    // Tools Loop
+    while (true) {
+      response = await this.executeRequest(
+        this.messages,
+        instruction,
+        onChunk,
+        onReasoning
+      );
+
+      if (!response.tool_calls?.length) break;
+
+      const toolsMessages = await this.tools.execute(response.tool_calls); // TODO onTools para feedback
+
+      console.log("--------==== toolsMessages ===========>>>>>>>>");
+      console.dir(toolsMessages, { depth: null });
+      console.log("--------==== Response ===========>>>>>>>>");
+
+      this.messages.push(...toolsMessages);
+    }
 
     this.messages.push({
       role: "assistant",
@@ -118,7 +139,7 @@ export class llmAPI {
     onChunk?: (chunk: string) => void,
     onReasoning?: (chunk: string) => void,
     attachFiles?: boolean
-  ): Promise<{ content: string; reasoning?: string }> {
+  ): Promise<{ content: string; reasoning?: string; tool_calls?: Array<any> }> {
     const isStream = !!onChunk;
     const doAttach = !(attachFiles === false);
 
@@ -137,35 +158,7 @@ export class llmAPI {
       max_tokens: this.maxTokens,
       stream: isStream,
       thinking: { type: "enabled" },
-      tools: [
-        {
-          type: "function",
-          function: {
-            name: "get_date",
-            description: "Get the current date",
-            parameters: { type: "object", properties: {} },
-          },
-        },
-        {
-          type: "function",
-          function: {
-            name: "get_weather",
-            description:
-              "Get weather of a location, the user should supply the location and date.",
-            parameters: {
-              type: "object",
-              properties: {
-                location: { type: "string", description: "The city name" },
-                date: {
-                  type: "string",
-                  description: "The date in format YYYY-mm-dd",
-                },
-              },
-              required: ["location", "date"],
-            },
-          },
-        },
-      ],
+      tools: this.tools.getDescriptions(),
     };
 
     const postOpts: AxiosRequestConfig = {
@@ -186,6 +179,7 @@ export class llmAPI {
     }
 
     try {
+      let ret;
       const response = await axios.post(this.url, postData, postOpts);
 
       if (!isStream) {
@@ -199,94 +193,27 @@ export class llmAPI {
           console.log("--------==== Response ===========>>>>>>>>");
         }
 
-        return {
+        ret = {
           content,
-          reasoning: "", // TODO
+          // reasoning: "", // TODO
           //usage: await this.getUsage(requestMessages, content)
         };
       } else {
         const streamOK = response.data?.on ?? false;
         if (!streamOK) {
-          return { content: "API ERROR!" };
+          throw { error: "API ERROR !response.data?.on" };
         }
 
-        // TODO : use reject
-        return new Promise((resolve, reject) => {
-          // let receivedData = false;
-          let fullContent = "";
-          let fullReasoning = "";
+        const result = await this.handleStream(response, onChunk, onReasoning);
 
-          response.data.on("data", (chunk: Buffer) => {
-            console.log("-------------===========>>>>>>>>>>>>>>>>>>>>>");
-            console.log(chunk.toString());
-            console.log("-------------===========>>>>>>>>>>>>>>>>>>>>>");
-
-            // if (onData && !receivedData) {
-            //   receivedData = true;
-            //   onData();
-            // }
-
-            try {
-              const lines = chunk.toString().split("\n");
-              for (const line of lines) {
-                switch (this.llm) {
-                  case LLM.DeepSeek:
-                  case LLM.ChatGPT:
-                    if (line.startsWith("data: ") && line !== "data: [DONE]") {
-                      const jsonData = JSON.parse(line.substring(6));
-                      console.dir(jsonData, { depth: null });
-                      const content =
-                        jsonData.choices?.[0]?.delta?.content || "";
-                      if (content) {
-                        // process.stdout.write(content);
-                        fullContent += content;
-                        onChunk(content);
-                      }
-                      const reasoning =
-                        jsonData.choices?.[0]?.delta?.reasoning_content || "";
-                      if (reasoning) {
-                        // process.stdout.write(content);
-                        fullReasoning += reasoning;
-                        onReasoning?.(reasoning);
-                      }
-                    }
-                    break;
-
-                  case LLM.Ollama:
-                    if (line) {
-                      const jsonData = JSON.parse(line);
-                      if (jsonData.done) {
-                        // TODO get statistics
-                        // console.log(jsonData);
-                      } else {
-                        const content = jsonData.message?.content || "";
-                        if (content) {
-                          // process.stdout.write(content);
-                          fullContent += content;
-                          onChunk(content);
-                        }
-                      }
-                    }
-                    break;
-                }
-              }
-            } catch (e) {
-              // ignore JSON parsing errors
-            }
-          });
-
-          response.data.on("end", () => {
-            if (this.debug) {
-              console.log("--------==== Response ===========>>>>>>>>");
-              console.log("R:", fullContent);
-              console.log("--------==== Response ===========>>>>>>>>");
-            }
-            console.log("\n");
-
-            resolve({ content: fullContent, reasoning: fullReasoning });
-          });
-        });
+        ret = {
+          content: result.content,
+          reasoning: result.reasoning,
+          tool_calls: result.tool_calls,
+        };
       }
+
+      return ret;
     } catch (error: any) {
       // if (error.response) {
       //   console.error("DeepSeek API error response:", error.response.status, error.response.data);
@@ -299,6 +226,105 @@ export class llmAPI {
 
       return { content: "API Error!" };
     }
+  }
+
+  private async handleStream(
+    response: any,
+    onChunk?: (chunk: string) => void,
+    onReasoning?: (chunk: string) => void
+  ): Promise<{ content: string; reasoning: string; tool_calls: Array<any> }> {
+    return new Promise((resolve, reject) => {
+      // let receivedData = false;
+      let fullContent = "";
+      let fullReasoning = "";
+      let toolCalls: Array<any> = [];
+
+      response.data.on("data", (chunk: Buffer) => {
+        // console.log("-------------===========>>>>>>>>>>>>>>>>>>>>>");
+        // console.log(chunk.toString());
+        // console.log("-------------===========>>>>>>>>>>>>>>>>>>>>>");
+
+        try {
+          const lines = chunk.toString().split("\n");
+          for (const line of lines) {
+            switch (this.llm) {
+              case LLM.DeepSeek:
+              case LLM.ChatGPT:
+                if (line.startsWith("data: ") && line !== "data: [DONE]") {
+                  const jsonData = JSON.parse(line.substring(6));
+                  console.dir(jsonData, { depth: null });
+
+                  const content = jsonData.choices?.[0]?.delta?.content || "";
+                  if (content) {
+                    fullContent += content;
+                    onChunk?.(content);
+                  }
+
+                  const reasoning =
+                    jsonData.choices?.[0]?.delta?.reasoning_content || "";
+                  if (reasoning) {
+                    fullReasoning += reasoning;
+                    onReasoning?.(reasoning);
+                  }
+
+                  const tool_calls =
+                    jsonData.choices?.[0]?.delta?.tool_calls ?? [];
+                  for (const tool_call of tool_calls) {
+                    const funcionName = tool_call.function?.name ?? "";
+                    if (funcionName) {
+                      toolCalls.push(tool_call);
+                    }
+                  }
+
+                  // const finish_reason =
+                  //   jsonData.choices?.[0]?.finish_reason ?? "";
+                  // if (finish_reason) {
+                  //   // TODO
+                  // }
+                }
+                break;
+
+              case LLM.Ollama:
+                if (line) {
+                  const jsonData = JSON.parse(line);
+                  if (jsonData.done) {
+                    // TODO get statistics
+                    // console.log(jsonData);
+                  } else {
+                    const content = jsonData.message?.content || "";
+                    if (content) {
+                      // process.stdout.write(content);
+                      fullContent += content;
+                      onChunk?.(content);
+                    }
+                  }
+                }
+                break;
+            }
+          }
+        } catch (e) {
+          // ignore JSON parsing errors
+        }
+      });
+
+      response.data.on("end", () => {
+        const ret = {
+          content: fullContent,
+          reasoning: fullReasoning,
+          tool_calls: toolCalls,
+        };
+
+        if (this.debug) {
+          console.log("--------==== Response ===========>");
+          console.dir(ret, { depth: null });
+          console.log("--------==== Response ===========>");
+        }
+
+        resolve(ret);
+      });
+
+      response.data.on("error", reject);
+    });
   }
 
   clearMessages() {
