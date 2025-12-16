@@ -237,6 +237,7 @@ export class llmAPI {
       // let receivedData = false;
       let fullContent = "";
       let fullReasoning = "";
+      let reasoningNewLine = false;
       let toolCalls: Array<any> = [];
 
       let toolCall;
@@ -258,17 +259,21 @@ export class llmAPI {
                     console.dir(jsonData, { depth: null });
                   }
 
-                  const content = jsonData.choices?.[0]?.delta?.content || "";
-                  if (content) {
-                    fullContent += content;
-                    onChunk?.(content);
-                  }
-
                   const reasoning =
                     jsonData.choices?.[0]?.delta?.reasoning_content || "";
                   if (reasoning) {
                     fullReasoning += reasoning;
                     onReasoning?.(reasoning);
+                  }
+                  if (fullReasoning && !reasoning && !reasoningNewLine) {
+                    reasoningNewLine = true;
+                    onReasoning?.("\n");
+                  }
+
+                  const content = jsonData.choices?.[0]?.delta?.content || "";
+                  if (content) {
+                    fullContent += content;
+                    onChunk?.(content);
                   }
 
                   const tool_call =
@@ -294,6 +299,8 @@ export class llmAPI {
                         toolCalls.push(toolCall);
                         break;
                     }
+
+                    if (fullContent) onChunk?.("\n");
 
                     const usage = jsonData.usage ?? "";
                     if (usage) {
