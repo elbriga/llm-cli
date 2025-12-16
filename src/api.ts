@@ -143,7 +143,12 @@ export class llmAPI {
     onChunk?: (chunk: string) => void,
     onReasoning?: (chunk: string) => void,
     attachFiles?: boolean
-  ): Promise<{ content: string; reasoning?: string; tool_calls?: Array<any> }> {
+  ): Promise<{
+    content: string;
+    reasoning: string;
+    tool_calls: Array<any>;
+    usage: object;
+  }> {
     const isStream = !!onChunk;
     const doAttach = !(attachFiles === false);
 
@@ -190,10 +195,14 @@ export class llmAPI {
         const content =
           response.data?.choices?.[0]?.message?.content ?? // Cloud
           response.data?.message?.content; // Ollama
+        const reasoning =
+          response.data?.choices?.[0]?.message?.reasoning_content ?? "";
+        const tool_calls =
+          response.data?.choices?.[0]?.message?.tool_calls ?? null;
 
         if (this.debug) {
           console.log("--------==== Response ===========>>>>>>>>");
-          console.dir(response.data?.choices?.[0]?.message, {
+          console.dir(response.data, {
             depth: null,
           });
           console.log("--------==== Response ===========>>>>>>>>");
@@ -201,8 +210,9 @@ export class llmAPI {
 
         ret = {
           content,
-          // reasoning: "", // TODO
-          //usage: await this.getUsage(requestMessages, content)
+          reasoning,
+          tool_calls,
+          // TODO usage: await this.getUsage(requestMessages, content)
         };
       } else {
         const streamOK = response.data?.on ?? false;
@@ -224,7 +234,7 @@ export class llmAPI {
       // }
       console.error("Full error:", error);
 
-      return { content: "API Error!" };
+      throw error;
     }
   }
 
@@ -232,9 +242,13 @@ export class llmAPI {
     response: any,
     onChunk?: (chunk: string) => void,
     onReasoning?: (chunk: string) => void
-  ): Promise<{ content: string; reasoning: string; tool_calls: Array<any> }> {
+  ): Promise<{
+    content: string;
+    reasoning: string;
+    tool_calls: Array<any>;
+    usage: object;
+  }> {
     return new Promise((resolve, reject) => {
-      // let receivedData = false;
       let fullContent = "";
       let fullReasoning = "";
       let reasoningNewLine = false;
@@ -338,6 +352,7 @@ export class llmAPI {
           content: fullContent,
           reasoning: fullReasoning,
           tool_calls: toolCalls,
+          usage: {}, // TODO
         };
 
         if (this.debug) {
