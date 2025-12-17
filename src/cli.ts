@@ -8,6 +8,7 @@ import { llmAPI } from "./api.ts";
 
 export class CLI {
   private api = new llmAPI();
+  private temp = 0.1;
 
   private instruction =
     "You are DeepSeek Coder, an AI programming assistant.\n" +
@@ -16,13 +17,15 @@ export class CLI {
 
   async execute() {
     this.api.banner();
+    this.api.setTemperature(this.temp);
 
+    // // TESTING
     // this.api.debugON();
     // const r = await this.api.newMessage(
     //   "Help the users with his tasks. Remember to use the provided tools.",
     //   "How's the weather in Hangzhou Tomorrow?",
     //   //"Analyze the project",
-    //   (chunk) => process.stdout.write(chunk), // TODO tentar sync
+    //   undefined, //(chunk) => process.stdout.write(chunk), // TODO tentar sync
     //   (chunk) => process.stdout.write(chalk.blue(chunk)),
     //   (toolCall) => {
     //     console.log(chalk.green("Tool Called: ") + chalk.yellow(toolCall));
@@ -75,7 +78,9 @@ export class CLI {
   }
 
   private execCmd(command: string) {
-    switch (command) {
+    const args = command.split(" ");
+
+    switch (args[0]) {
       case "h":
       case "help":
         this.help();
@@ -93,6 +98,13 @@ export class CLI {
       case "clear":
         this.api.clearMessages();
         console.log(chalk.yellow("Messages Cleared"));
+        break;
+
+      case "t":
+      case "temp":
+        this.temp = Number(args[1] ?? 0.1);
+        console.log(chalk.yellow(`Setting temperature to ${this.temp}`));
+        this.api.setTemperature(this.temp);
         break;
 
       case "d":
@@ -127,6 +139,9 @@ export class CLI {
     console.log("");
     console.log(chalk.white("/d"));
     console.log(chalk.white("/debug") + chalk.yellow(" Enable Debugging"));
+    console.log("");
+    console.log(chalk.white("/t <T>"));
+    console.log(chalk.white("/temp <T>") + chalk.yellow(" Set temperature"));
     console.log("\n");
   }
 
