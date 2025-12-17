@@ -197,4 +197,4 @@ The project uses TypeScript with tsx for execution. No separate build step is re
 - Uses Axios for HTTP requests
 - Supports DeepSeek, Ollama, and ChatGPT APIs
 - Inspired by various CLI tools and AI assistants
-- This file was written br Deepseek!
+- This file was written br Deepseek! Using this tool :)
