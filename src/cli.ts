@@ -28,7 +28,7 @@ export class CLI {
     // console.log("------------=======>>>>>");
     // return;
 
-    console.log("Digite algo (ou 'exit' para sair):");
+    console.log("Type in!");
 
     while (true) {
       const line = await this.readLine("LLM");
