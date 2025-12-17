@@ -3,8 +3,7 @@ import { globSync } from "glob";
 import { ToolInterface } from "../tools.ts";
 
 export class Workspace implements ToolInterface {
-  //   includeGlob = "{*.md,package.json,src/**/*}";
-  includeGlob = "src/**/*";
+  includeGlob = "{*.md,package.json,src/**/*}";
 
   getDescription(): object {
     return {
