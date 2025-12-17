@@ -62,6 +62,9 @@ export class CLI {
             console.log("");
           }
           process.stdout.write(chalk.blue(chunk));
+        },
+        (toolCall) => {
+          console.log(chalk.green("Tool Called: ") + chalk.yellow(toolCall));
         }
       );
       spinner.stop();

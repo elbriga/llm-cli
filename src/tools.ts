@@ -19,7 +19,10 @@ export class Tools {
     get_files: new GetFiles(),
   };
 
-  async execute(tool_calls: Array<any>): Promise<Array<any>> {
+  async execute(
+    tool_calls: Array<any>,
+    onToolCalled?: (toolCalled: string) => void
+  ): Promise<Array<any>> {
     let ret: Array<any> = [];
 
     for (const toolCall of tool_calls) {
@@ -28,8 +31,9 @@ export class Tools {
       if (!tool) continue;
 
       let functionArgs = {};
+      const functionArgsStr = toolCall.function.arguments ?? "{}";
       try {
-        functionArgs = JSON.parse(toolCall.function?.arguments ?? "{}");
+        functionArgs = JSON.parse(functionArgsStr);
       } catch {}
 
       // console.log("===== CALLING =====---------->>");
@@ -44,6 +48,8 @@ export class Tools {
         tool_call_id: toolCall.id,
         content: toolResponse,
       });
+
+      onToolCalled?.(`${functionName}(${functionArgsStr})`);
     }
 
     return ret;
@@ -57,13 +63,5 @@ export class Tools {
     }
 
     return ret;
-  }
-
-  // The mocked version of the tool calls
-  get_date_mock() {
-    return "2025-12-01";
-  }
-  get_weather_mock({ location, date }) {
-    return `Cloudy 7~13°C at ${location} on ${date}`;
   }
 }

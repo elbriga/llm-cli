@@ -21,6 +21,7 @@ export class GetWeather implements ToolInterface {
   }
 
   execute({ location, date }) {
+    // Mock
     return `Cloudy 7~13°C at ${location} on ${date}`;
   }
 }

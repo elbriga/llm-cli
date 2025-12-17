@@ -75,7 +75,8 @@ export class llmAPI {
     instruction: string,
     message: string,
     onChunk?: (chunk: string) => void,
-    onReasoning?: (chunk: string) => void
+    onReasoning?: (chunk: string) => void,
+    onToolCalled?: (toolCalled: string) => void
   ): Promise<string> {
     if (!message) return "";
 
@@ -103,7 +104,10 @@ export class llmAPI {
         tool_calls: response.tool_calls,
       });
 
-      const toolsMessages = await this.tools.execute(response.tool_calls); // TODO onTools para feedback
+      const toolsMessages = await this.tools.execute(
+        response.tool_calls,
+        onToolCalled
+      ); // TODO onTools para feedback
       this.messages.push(...toolsMessages);
     }
 
