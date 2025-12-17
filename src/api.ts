@@ -23,6 +23,7 @@ export class llmAPI {
   private model: string;
   private apiKey: string;
   private maxTokens: number;
+  private temperature: number = 0.1;
 
   private debug: boolean = false;
 
@@ -76,10 +77,15 @@ export class llmAPI {
   banner() {
     console.log(chalk.green("Welcome to LLM-CLI!"));
     console.log("");
-    console.log(chalk.white("LLM       > ") + chalk.blueBright(this.name));
-    console.log(chalk.white("Model     > ") + chalk.blueBright(this.model));
-    console.log(chalk.white("URL       > ") + chalk.blueBright(this.url));
-    console.log(chalk.white("MaxTokens > ") + chalk.blueBright(this.maxTokens));
+    console.log(chalk.white("LLM         > ") + chalk.blueBright(this.name));
+    console.log(chalk.white("Model       > ") + chalk.blueBright(this.model));
+    console.log(chalk.white("URL         > ") + chalk.blueBright(this.url));
+    console.log(
+      chalk.white("Temperature > ") + chalk.blueBright(this.temperature)
+    );
+    console.log(
+      chalk.white("MaxTokens   > ") + chalk.blueBright(this.maxTokens)
+    );
     console.log("");
   }
 
@@ -155,6 +161,7 @@ export class llmAPI {
       model: this.model,
       messages: postMessages,
       max_tokens: this.maxTokens,
+      temperature: this.temperature,
       stream: isStream,
       thinking: { type: "enabled" },
       tools: this.tools.getDescriptions(),
@@ -302,6 +309,7 @@ export class llmAPI {
                       toolCall.function.arguments = funcionArgs;
                     } else if (toolCall) {
                       toolCall.function.arguments += funcionArgs;
+                      // TODO onArguments()
                     }
                   }
 
@@ -376,5 +384,9 @@ export class llmAPI {
 
   clearMessages() {
     this.messages = [];
+  }
+
+  setTemperature(t: number) {
+    this.temperature = t;
   }
 }
