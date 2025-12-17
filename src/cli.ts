@@ -73,6 +73,11 @@ export class CLI {
 
   private execCmd(command: string) {
     switch (command) {
+      case "h":
+      case "help":
+        this.help();
+        break;
+
       case "q":
       case "x":
       case "exit":
@@ -97,6 +102,24 @@ export class CLI {
         console.log(chalk.red(`Unknown Comamnd: ${command}`));
         break;
     }
+  }
+  private help() {
+    console.log(chalk.white("/h"));
+    console.log(chalk.white("/help") + chalk.yellow(" This Help!"));
+    console.log("");
+    console.log(chalk.white("/q"));
+    console.log(chalk.white("/x"));
+    console.log(chalk.white("/exit"));
+    console.log(chalk.white("/quit") + chalk.yellow(" Exit!"));
+    console.log("");
+    console.log(chalk.white("/c"));
+    console.log(
+      chalk.white("/clear") + chalk.yellow(" Clear the conversation")
+    );
+    console.log("");
+    console.log(chalk.white("/d"));
+    console.log(chalk.white("/debug") + chalk.yellow(" Enable Debugging"));
+    console.log("\n");
   }
 
   private async readLine(prompt: string): Promise<string> {
