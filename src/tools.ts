@@ -17,6 +17,10 @@ export class Tools {
     list_workspace: new Workspace(),
     get_file: new GetFile(),
     get_files: new GetFiles(),
+    // TODO
+    // new_file: new NewFile(),
+    // edit_file: new EditFile(),
+    // npm_install: new NpmInstall(),
   };
 
   async execute(
@@ -31,10 +35,16 @@ export class Tools {
       if (!tool) continue;
 
       let functionArgs = {};
-      const functionArgsStr = toolCall.function.arguments ?? "{}";
-      try {
-        functionArgs = JSON.parse(functionArgsStr);
-      } catch {}
+      let functionArgsStr = toolCall.function.arguments ?? "{}";
+      if (typeof functionArgsStr === "string") {
+        try {
+          functionArgs = JSON.parse(functionArgsStr);
+        } catch {}
+      } else {
+        // TODO Check if is object?
+        functionArgs = functionArgsStr;
+        functionArgsStr = JSON.stringify(functionArgs);
+      }
 
       // console.log("===== CALLING =====---------->>");
       // console.log(functionName);

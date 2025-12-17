@@ -15,20 +15,23 @@ export class CLI {
   //"If any file change is necessary respond with unified diff enclosed in <DIFF></DIFF> so I can do file editing.";
 
   async execute() {
+    this.api.banner();
+
     // this.api.debugON();
     // const r = await this.api.newMessage(
-    //   "Help the users with his tasks",
-    //   // "How's the weather in Hangzhou Tomorrow",
-    //   "Analyze the project",
+    //   "Help the users with his tasks. Remember to use the provided tools.",
+    //   "How's the weather in Hangzhou Tomorrow?",
+    //   //"Analyze the project",
     //   (chunk) => process.stdout.write(chunk), // TODO tentar sync
-    //   (chunk) => process.stdout.write(chalk.blue(chunk))
+    //   (chunk) => process.stdout.write(chalk.blue(chunk)),
+    //   (toolCall) => {
+    //     console.log(chalk.green("Tool Called: ") + chalk.yellow(toolCall));
+    //   }
     // );
     // console.log("------------=======>>>>>");
     // console.dir(r, { depth: null });
     // console.log("------------=======>>>>>");
     // return;
-
-    console.log("Type in!");
 
     while (true) {
       const line = await this.readLine("LLM");
@@ -61,7 +64,7 @@ export class CLI {
             spinner.stop();
             console.log("");
           }
-          process.stdout.write(chalk.blue(chunk));
+          process.stdout.write(chalk.blueBright(chunk));
         },
         (toolCall) => {
           console.log(chalk.green("Tool Called: ") + chalk.yellow(toolCall));
@@ -96,6 +99,11 @@ export class CLI {
       case "debug":
         this.api.debugON();
         console.log(chalk.red("DEBUG ON"));
+        break;
+
+      case "l":
+      case "list":
+        //this.api.listModels();
         break;
 
       default:

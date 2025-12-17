@@ -1,6 +1,5 @@
 import axios from "axios";
 import { AxiosRequestConfig } from "axios";
-import * as fs from "fs";
 import chalk from "chalk";
 
 import { Tools } from "./tools.ts";
@@ -19,6 +18,7 @@ interface Message {
 
 export class llmAPI {
   private llm: LLM;
+  private name: string;
   private url: string;
   private model: string;
   private apiKey: string;
@@ -30,7 +30,6 @@ export class llmAPI {
 
   private defaultInstruction = "You are a helpful assistant";
   private messages: Message[] = [];
-  private attachedFiles: string[] = [];
 
   constructor() {
     this.llm = process.env.DEEPSEEK_API_KEY
@@ -41,7 +40,8 @@ export class llmAPI {
 
     switch (this.llm) {
       case LLM.Ollama:
-        this.model = "deepseek-coder:6.7b";
+        this.name = "Ollama";
+        this.model = "llama3.2"; //"deepseek-coder:6.7b";
         this.apiKey = "";
         this.maxTokens = 64 * 1024;
         this.url = process.env.OLLAMA_HOST
@@ -50,6 +50,7 @@ export class llmAPI {
         break;
 
       case LLM.DeepSeek:
+        this.name = "DeepSeek";
         this.model = "deepseek-reasoner";
         this.maxTokens = 64 * 1024;
         this.url = "https://api.deepseek.com/chat/completions";
@@ -57,6 +58,7 @@ export class llmAPI {
         break;
 
       case LLM.ChatGPT:
+        this.name = "ChatGPT";
         this.model = "???";
         this.maxTokens = 64 * 1024;
         this.url = "https://...";
@@ -69,6 +71,16 @@ export class llmAPI {
 
   debugON() {
     this.debug = true;
+  }
+
+  banner() {
+    console.log(chalk.green("Welcome to LLM-CLI!"));
+    console.log("");
+    console.log(chalk.white("LLM       > ") + chalk.blueBright(this.name));
+    console.log(chalk.white("Model     > ") + chalk.blueBright(this.model));
+    console.log(chalk.white("URL       > ") + chalk.blueBright(this.url));
+    console.log(chalk.white("MaxTokens > ") + chalk.blueBright(this.maxTokens));
+    console.log("");
   }
 
   async newMessage(
@@ -119,34 +131,11 @@ export class llmAPI {
     return response.content;
   }
 
-  async oneConversation333(
-    instruction: string,
-    prompt: string
-  ): Promise<string> {
-    const messages = [
-      {
-        role: "user",
-        content: prompt,
-      },
-    ];
-
-    const response = await this.executeRequest(
-      messages,
-      instruction,
-      undefined,
-      undefined,
-      false
-    );
-
-    return response.content;
-  }
-
   private async executeRequest(
     messages: Message[],
     instruction?: string,
     onChunk?: (chunk: string) => void,
-    onReasoning?: (chunk: string) => void,
-    attachFiles?: boolean
+    onReasoning?: (chunk: string) => void
   ): Promise<{
     content: string;
     reasoning: string;
@@ -154,7 +143,6 @@ export class llmAPI {
     usage: object;
   }> {
     const isStream = !!onChunk;
-    const doAttach = !(attachFiles === false);
 
     const postMessages: Message[] = [...messages];
     // Add SYSTEM role
@@ -162,8 +150,6 @@ export class llmAPI {
       role: "system",
       content: instruction ?? this.defaultInstruction,
     });
-
-    if (doAttach && this.attachedFiles) this.addFilesToMessages(postMessages);
 
     const postData = {
       model: this.model,
@@ -177,7 +163,7 @@ export class llmAPI {
     const postOpts: AxiosRequestConfig = {
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${this.apiKey}`,
+        ...(this.apiKey && { Authorization: `Bearer ${this.apiKey}` }),
       },
       ...(isStream && { responseType: "stream" }),
     };
@@ -196,20 +182,28 @@ export class llmAPI {
       const response = await axios.post(this.url, postData, postOpts);
 
       if (!isStream) {
-        const content =
-          response.data?.choices?.[0]?.message?.content ?? // Cloud
-          response.data?.message?.content; // Ollama
-        const reasoning =
-          response.data?.choices?.[0]?.message?.reasoning_content ?? "";
-        const tool_calls =
-          response.data?.choices?.[0]?.message?.tool_calls ?? null;
-
         if (this.debug) {
           console.log("--------==== Response ===========>>>>>>>>");
-          console.dir(response.data, {
-            depth: null,
-          });
+          console.dir(response.data, { depth: null });
           console.log("--------==== Response ===========>>>>>>>>");
+        }
+
+        let content = "";
+        let reasoning = "";
+        let tool_calls = undefined;
+
+        switch (this.llm) {
+          case LLM.DeepSeek:
+          case LLM.ChatGPT:
+            content = response.data?.choices?.[0]?.message?.content;
+            reasoning =
+              response.data?.choices?.[0]?.message?.reasoning_content ?? "";
+            tool_calls = response.data?.choices?.[0]?.message?.tool_calls;
+            break;
+
+          case LLM.Ollama:
+            content = response.data?.message?.content;
+            break;
         }
 
         ret = {
@@ -268,6 +262,8 @@ export class llmAPI {
         try {
           const lines = chunk.toString().split("\n");
           for (const line of lines) {
+            if (!line) continue;
+
             switch (this.llm) {
               case LLM.DeepSeek:
               case LLM.ChatGPT:
@@ -296,7 +292,6 @@ export class llmAPI {
 
                   const tool_call =
                     jsonData.choices?.[0]?.delta?.tool_calls?.[0];
-
                   if (tool_call) {
                     const funcionName = tool_call.function?.name ?? "";
                     const funcionArgs = tool_call.function?.arguments ?? "";
@@ -329,25 +324,31 @@ export class llmAPI {
                 break;
 
               case LLM.Ollama:
-                if (line) {
-                  const jsonData = JSON.parse(line);
-                  if (jsonData.done) {
-                    // TODO get statistics
-                    // console.log(jsonData);
-                  } else {
-                    const content = jsonData.message?.content || "";
-                    if (content) {
-                      // process.stdout.write(content);
-                      fullContent += content;
-                      onChunk?.(content);
-                    }
-                  }
+                const jsonData = JSON.parse(line);
+                // console.log("-------------==>>>>>>>>>>>>>");
+                // console.dir(jsonData, { depth: null });
+                // console.log("-------------==>>>>>>>>>>>>>");
+
+                const content = jsonData.message?.content || "";
+                if (content) {
+                  fullContent += content;
+                  onChunk?.(content);
+                }
+
+                const tool_call = jsonData.message?.tool_calls?.[0];
+                if (tool_call && tool_call.function?.name)
+                  toolCalls.push(tool_call);
+
+                if (jsonData.done) {
+                  // TODO get statistics
+                  // console.log(jsonData);
                 }
                 break;
             }
           }
         } catch (e) {
           // ignore JSON parsing errors
+          // TODO mover o try para pegar somente os parse
         }
       });
 
@@ -360,9 +361,9 @@ export class llmAPI {
         };
 
         if (this.debug) {
-          console.log("\n--------==== Response ===========>");
+          console.log("\n--------==== Stream Response ===========>");
           console.dir(ret, { depth: null });
-          console.log("--------==== Response ===========>");
+          console.log("--------==== Stream Response ===========>");
         }
 
         resolve(ret);
@@ -374,53 +375,5 @@ export class llmAPI {
 
   clearMessages() {
     this.messages = [];
-  }
-
-  attachFile(file: string) {
-    if (this.attachedFiles.includes(file)) {
-      return;
-    }
-
-    if (!fs.existsSync(file)) {
-      console.error(chalk.red(`Error: File not found: ${file}`));
-      return;
-    }
-
-    this.attachedFiles.push(file);
-  }
-
-  getHistoryString(): string {
-    let ret = "";
-    for (const msg of this.messages) {
-      ret += `// ====${msg.role}====\n`;
-      ret += `${msg.content}\n`;
-    }
-    if (ret) ret += `// ========\n`;
-    return ret;
-  }
-
-  private addFilesToMessages(messages: Message[]) {
-    for (const fileName of this.attachedFiles) {
-      if (!fs.existsSync(fileName)) {
-        console.error(chalk.red(`Error: File not found: ${fileName}`));
-        continue;
-      }
-
-      try {
-        let fileContent = fs.readFileSync(fileName, "utf8");
-        fileContent = fileContent.replace(/<DIFF>/gi, "<___D_I_F_F___>");
-        fileContent = fileContent.replace(/<\/DIFF>/gi, "</___D_I_F_F___>");
-
-        messages.push({
-          role: "user",
-          content: [
-            { type: "text", text: `Attached file: ${fileName}` },
-            { type: "text", text: fileContent },
-          ],
-        });
-      } catch (error) {
-        console.error(chalk.red(`Error reading file: ${fileName}`), error);
-      }
-    }
   }
 }
