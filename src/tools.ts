@@ -6,6 +6,9 @@ export interface ToolInterface {
 import { Workspace } from "./tools/workspace.ts";
 import { GetFile } from "./tools/getFile.ts";
 import { GetFiles } from "./tools/getFiles.ts";
+import { NewFile } from "./tools/newFile.ts";
+//import { EditFile } from "./tools/editFile.ts";
+//import { NpmInstall } from "./tools/npmInstall.ts";
 
 import { GetDate } from "./tools/getDate.ts";
 import { GetWeather } from "./tools/getWeather.ts";
@@ -17,10 +20,9 @@ export class Tools {
     list_workspace: new Workspace(),
     get_file: new GetFile(),
     get_files: new GetFiles(),
-    // TODO
-    // new_file: new NewFile(),
-    // edit_file: new EditFile(),
-    // npm_install: new NpmInstall(),
+    new_file: new NewFile(),
+    //edit_file: new EditFile(),
+    //pm_install: new NpmInstall(),
   };
 
   async execute(
