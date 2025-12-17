@@ -5,13 +5,9 @@ import chalk from "chalk";
 import ora from "ora";
 
 import { llmAPI } from "./api.ts";
-import { Workspace } from "./workspace.ts";
-import { Diff } from "./diff.ts";
 
 export class CLI {
   private api = new llmAPI();
-  private ws = new Workspace();
-  private diff = new Diff();
 
   private instruction =
     "You are DeepSeek Coder, an AI programming assistant.\n" +
@@ -20,16 +16,17 @@ export class CLI {
 
   async execute() {
     // this.api.debugON();
-    const r = await this.api.newMessage(
-      "Help the users with his tasks",
-      "How's the weather in Hangzhou Tomorrow",
-      (chunk) => process.stdout.write(chunk), // TODO tentar sync
-      (chunk) => process.stdout.write(chalk.blue(chunk))
-    );
-    console.log("------------=======>>>>>");
-    console.dir(r, { depth: null });
-    console.log("------------=======>>>>>");
-    return;
+    // const r = await this.api.newMessage(
+    //   "Help the users with his tasks",
+    //   // "How's the weather in Hangzhou Tomorrow",
+    //   "Analyze the project",
+    //   (chunk) => process.stdout.write(chunk), // TODO tentar sync
+    //   (chunk) => process.stdout.write(chalk.blue(chunk))
+    // );
+    // console.log("------------=======>>>>>");
+    // console.dir(r, { depth: null });
+    // console.log("------------=======>>>>>");
+    // return;
 
     console.log("Digite algo (ou 'exit' para sair):");
 
@@ -45,14 +42,8 @@ export class CLI {
       }
 
       const spinner = ora("Thinking...").start();
-      const files = await this.ws.askForIncludes(line, this.api);
-      for (const file of files) {
-        this.api.attachFile(file);
-      }
-      spinner.stop();
-
-      spinner.start("Asking...");
       let receivedData = false;
+
       const response = await this.api.newMessage(
         this.instruction,
         line,
@@ -63,21 +54,17 @@ export class CLI {
             console.log("");
           }
           process.stdout.write(chunk);
+        },
+        (chunk) => {
+          if (!receivedData) {
+            receivedData = true;
+            spinner.stop();
+            console.log("");
+          }
+          process.stdout.write(chalk.blue(chunk));
         }
       );
       spinner.stop();
-
-      const diffs = this.diff.parseDiffs(response);
-      if (diffs.length > 0) {
-        // list editing files
-        for (const diff of diffs) {
-          const line1 = diff.split("\n")?.[0];
-          console.log("-------------------==============>>>");
-          console.log(line1);
-          console.log("-------------------==============>>>");
-        }
-        await this.readLine("<Will now edit the files! Press ENTER");
-      }
     }
   }
 
@@ -113,6 +100,6 @@ export class CLI {
     const rl = createInterface({ input, output }); // Yes, calling inside the while, or else crashes!
     const line = await rl.question(`${prompt}> `);
     rl.close();
-    return line;
+    return line.trim();
   }
 }

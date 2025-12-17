@@ -1,7 +1,22 @@
+export interface ToolInterface {
+  execute(args: object): string;
+  getDescription(): object;
+}
+
+import { Workspace } from "./tools/workspace.ts";
+import { GetFile } from "./tools/getFile.ts";
+import { GetFiles } from "./tools/getFiles.ts";
+
+import { GetDate } from "./tools/getDate.ts";
+import { GetWeather } from "./tools/getWeather.ts";
+
 export class Tools {
-  private readonly TOOL_CALL_MAP = {
-    get_date: this.get_date_mock,
-    get_weather: this.get_weather_mock,
+  private readonly TOOL_CALL_MAP: Record<string, ToolInterface> = {
+    get_date: new GetDate(),
+    get_weather: new GetWeather(),
+    list_workspace: new Workspace(),
+    get_file: new GetFile(),
+    get_files: new GetFiles(),
   };
 
   async execute(tool_calls: Array<any>): Promise<Array<any>> {
@@ -9,62 +24,39 @@ export class Tools {
 
     for (const toolCall of tool_calls) {
       const functionName = toolCall.function?.name ?? "";
-      const func = this.TOOL_CALL_MAP[functionName] ?? false;
-      if (func) {
-        const functionArgStr = toolCall.function.arguments ?? "{}";
-        let funcionArgs = {};
-        try {
-          funcionArgs = JSON.parse(functionArgStr);
-        } catch (e) {
-          funcionArgs = {};
-        }
-        // console.log("===== CALLING =====---------->>");
-        // console.log(functionName);
-        // console.dir(toolCall, { depth: null });
-        // console.log("===================---------->>");
-        const toolResponse = func(funcionArgs); // TODO args
-        ret.push({
-          role: "tool",
-          name: functionName,
-          tool_call_id: toolCall.id,
-          content: toolResponse,
-        });
-      }
+      const tool = this.TOOL_CALL_MAP[functionName];
+      if (!tool) continue;
+
+      let functionArgs = {};
+      try {
+        functionArgs = JSON.parse(toolCall.function?.arguments ?? "{}");
+      } catch {}
+
+      // console.log("===== CALLING =====---------->>");
+      // console.log(functionName);
+      // console.dir(toolCall, { depth: null });
+      // console.log("===================---------->>");
+
+      const toolResponse = tool.execute(functionArgs);
+      ret.push({
+        role: "tool",
+        name: functionName,
+        tool_call_id: toolCall.id,
+        content: toolResponse,
+      });
     }
 
     return ret;
   }
 
   getDescriptions() {
-    return [
-      {
-        type: "function",
-        function: {
-          name: "get_date",
-          description: "Get the current date",
-          parameters: { type: "object", properties: {} },
-        },
-      },
-      {
-        type: "function",
-        function: {
-          name: "get_weather",
-          description:
-            "Get weather of a location, the user should supply the location and date.",
-          parameters: {
-            type: "object",
-            properties: {
-              location: { type: "string", description: "The city name" },
-              date: {
-                type: "string",
-                description: "The date in format YYYY-mm-dd",
-              },
-            },
-            required: ["location", "date"],
-          },
-        },
-      },
-    ];
+    let ret: Array<object> = [];
+
+    for (const [name, tool] of Object.entries(this.TOOL_CALL_MAP)) {
+      ret.push({ type: "function", function: tool.getDescription() });
+    }
+
+    return ret;
   }
 
   // The mocked version of the tool calls
