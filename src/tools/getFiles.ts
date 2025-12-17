@@ -10,7 +10,9 @@ export class GetFiles implements ToolInterface {
   getDescription(): object {
     return {
       name: "get_files",
-      description: "Get the contents of many files from a glob pattern",
+      description:
+        "Get the contents of many files from a glob pattern. " +
+        "Files are separated by this string '// ========== FILE ${file_name} ============='",
       parameters: {
         type: "object",
         properties: {
@@ -29,23 +31,19 @@ export class GetFiles implements ToolInterface {
 
     let ret = "";
     for (const file_name of files) {
-      ret += `// ========== FILE ${file_name} =============\n`;
-
       if (!this.ws.listFiles().includes(file_name)) {
-        ret += "FILE_NOT_FOUND\n\n";
         continue;
       }
-
       if (!fs.existsSync(file_name)) {
-        ret += "FILE_NOT_FOUND\n\n";
         continue;
       }
 
       try {
         let fileContent = fs.readFileSync(file_name, "utf8");
+        ret += `// ========== FILE ${file_name} =============\n`;
         ret += fileContent + "\n";
       } catch (error) {
-        ret += "ERROR!\n";
+        // ret += "ERROR!\n";
       }
     }
 
