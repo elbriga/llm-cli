@@ -29,7 +29,6 @@ export class GetFile implements ToolInterface {
       let fileContent = fs.readFileSync(file_name, "utf8");
       return fileContent;
     } catch (error) {
-      console.error(`Error reading file: ${file_name}`, error);
       return "ERROR!";
     }
   }

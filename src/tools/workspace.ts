@@ -9,7 +9,7 @@ export class Workspace implements ToolInterface {
     return {
       name: "list_workspace",
       description: "List the files on the user workspace",
-      parameters: { type: "object", properties: {} }, // TODO includeGlob como parametro
+      parameters: { type: "object", properties: {} },
     };
   }
 
@@ -19,7 +19,6 @@ export class Workspace implements ToolInterface {
   }
 
   listFiles(): Array<string> {
-    // Encontrar arquivos pelo pattern (ex: "src/*.ts")
     return globSync(this.includeGlob);
   }
 }
