@@ -195,14 +195,15 @@ export class llmAPI {
         switch (this.llm) {
           case LLM.DeepSeek:
           case LLM.ChatGPT:
-            content = response.data?.choices?.[0]?.message?.content;
+            content = response.data?.choices?.[0]?.message?.content ?? "";
             reasoning =
               response.data?.choices?.[0]?.message?.reasoning_content ?? "";
             tool_calls = response.data?.choices?.[0]?.message?.tool_calls;
             break;
 
           case LLM.Ollama:
-            content = response.data?.message?.content;
+            content = response.data?.message?.content ?? "";
+            tool_calls = response.data?.message?.tool_calls;
             break;
         }
 
