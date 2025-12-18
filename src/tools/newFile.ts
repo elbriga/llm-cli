@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import * as path from "path";
 
 import { ToolInterface } from "../tools.ts";
 //import { Workspace } from "./workspace.ts";
@@ -26,14 +27,23 @@ export class NewFile implements ToolInterface {
 
   execute({ file_name, content }): string {
     //if (!this.ws.listFiles().includes(file_name)) return "FILE_NOT_FOUND";
-
     //if (!fs.existsSync(file_name)) return "FILE_NOT_FOUND";
+
+    // Ensure the directory exists
+    const dir = path.dirname(file_name);
+    if (!fs.existsSync(dir)) {
+      try {
+        fs.mkdirSync(dir, { recursive: true });
+      } catch (error) {
+        return `ERROR CREATING DIRECTORY: ${error}`;
+      }
+    }
 
     try {
       fs.writeFileSync(file_name, content);
       return `FILE ${file_name} WRITTEN`;
     } catch (error) {
-      return "ERROR!";
+      return `ERROR WRITING FILE: ${error}`;
     }
   }
 }
