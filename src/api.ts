@@ -94,7 +94,7 @@ export class llmAPI {
     message: string,
     onChunk?: (chunk: string) => void,
     onReasoning?: (chunk: string) => void,
-    onToolCalled?: (toolCalled: string) => void
+    onToolCalling?: (chunk: string) => void
   ): Promise<string> {
     if (!message) return "";
 
@@ -110,7 +110,8 @@ export class llmAPI {
         this.messages,
         instruction,
         onChunk,
-        onReasoning
+        onReasoning,
+        onToolCalling
       );
 
       if (!response.tool_calls?.length) break;
@@ -122,10 +123,7 @@ export class llmAPI {
         tool_calls: response.tool_calls,
       });
 
-      const toolsMessages = await this.tools.execute(
-        response.tool_calls,
-        onToolCalled
-      ); // TODO onTools para feedback
+      const toolsMessages = await this.tools.execute(response.tool_calls);
       this.messages.push(...toolsMessages);
     }
 
@@ -141,7 +139,8 @@ export class llmAPI {
     messages: Message[],
     instruction?: string,
     onChunk?: (chunk: string) => void,
-    onReasoning?: (chunk: string) => void
+    onReasoning?: (chunk: string) => void,
+    onToolArgs?: (chunk: string) => void
   ): Promise<{
     content: string;
     reasoning: string;
@@ -226,7 +225,12 @@ export class llmAPI {
           throw { error: "API ERROR !response.data?.on" };
         }
 
-        ret = await this.handleStream(response, onChunk, onReasoning);
+        ret = await this.handleStream(
+          response,
+          onChunk,
+          onReasoning,
+          onToolArgs
+        );
       }
 
       return ret;
@@ -247,7 +251,8 @@ export class llmAPI {
   private async handleStream(
     response: any,
     onChunk?: (chunk: string) => void,
-    onReasoning?: (chunk: string) => void
+    onReasoning?: (chunk: string) => void,
+    onToolArgs?: (chunk: string) => void
   ): Promise<{
     content: string;
     reasoning: string;
@@ -307,19 +312,19 @@ export class llmAPI {
                       // Start the args capture
                       toolCall = tool_call;
                       toolCall.function.arguments = funcionArgs;
+                      onToolArgs?.(`Calling Tool > ${funcionName} (`);
                     } else if (toolCall) {
                       toolCall.function.arguments += funcionArgs;
-                      // TODO onArguments()
                     }
+                    onToolArgs?.(funcionArgs);
                   }
 
                   const finish_reason =
                     jsonData.choices?.[0]?.finish_reason ?? "";
                   if (finish_reason) {
-                    switch (finish_reason) {
-                      case "tool_calls":
-                        toolCalls.push(toolCall);
-                        break;
+                    if (toolCall) {
+                      toolCalls.push(toolCall);
+                      onToolArgs?.(")\n");
                     }
 
                     if (fullContent) onChunk?.("\n");

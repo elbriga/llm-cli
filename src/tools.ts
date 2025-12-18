@@ -25,10 +25,7 @@ export class Tools {
     //pm_install: new NpmInstall(),
   };
 
-  async execute(
-    tool_calls: Array<any>,
-    onToolCalled?: (toolCalled: string) => void
-  ): Promise<Array<any>> {
+  async execute(tool_calls: Array<any>): Promise<Array<any>> {
     let ret: Array<any> = [];
 
     for (const toolCall of tool_calls) {
@@ -60,8 +57,6 @@ export class Tools {
         tool_call_id: toolCall.id,
         content: toolResponse,
       });
-
-      onToolCalled?.(`${functionName}(${functionArgsStr})`);
     }
 
     return ret;

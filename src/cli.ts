@@ -25,7 +25,7 @@ export class CLI {
     //   "Help the users with his tasks. Remember to use the provided tools.",
     //   "How's the weather in Hangzhou Tomorrow?",
     //   //"Analyze the project",
-    //   undefined, //(chunk) => process.stdout.write(chunk), // TODO tentar sync
+    //   undefined, //(chunk) => process.stdout.write(chunk),
     //   (chunk) => process.stdout.write(chalk.blue(chunk)),
     //   (toolCall) => {
     //     console.log(chalk.green("Tool Called: ") + chalk.yellow(toolCall));
@@ -69,8 +69,8 @@ export class CLI {
           }
           process.stdout.write(chalk.blueBright(chunk));
         },
-        (toolCall) => {
-          console.log(chalk.green("Tool Called: ") + chalk.yellow(toolCall));
+        (chunk) => {
+          process.stdout.write(chalk.yellowBright(chunk));
         }
       );
       spinner.stop();
