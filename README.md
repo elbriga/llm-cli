@@ -24,7 +24,7 @@ LLM-CLI is a TypeScript-based command-line interface that allows you to interact
 - npm or yarn
 - For Ollama: Ollama installed and running locally
 
-### Setup
+### Local Development Setup
 
 1. Clone the repository:
 ```bash
@@ -45,6 +45,22 @@ npm install
 4. Start the CLI:
 ```bash
 npm start
+```
+
+### Global Installation
+
+To install the CLI globally on your system (so you can run `llm-cli` from anywhere):
+
+1. Install the package globally from the local directory:
+```bash
+npm install -g .
+```
+
+2. Configure API keys (same as above).
+
+3. Run the CLI:
+```bash
+llm-cli
 ```
 
 ## Usage
@@ -72,7 +88,7 @@ Use slash commands for system operations:
 The LLM has access to the following tools for assisting with development tasks:
 
 ### File Operations
-- **`list_workspace`** - List files in the workspace
+- **`list_workspace`** - List files on the user workspace
 - **`get_file`** - Read the contents of a single file
 - **`get_files`** - Read multiple files using glob patterns
 - **`new_file`** - Create or overwrite a file
@@ -168,6 +184,8 @@ llm-cli/
 │       ├── npmInstall.ts   # Install npm packages
 │       ├── getDate.ts      # Get current date
 │       └── getWeather.ts   # Get weather info
+├── bin/
+│   └── llm-cli.js          # Global CLI entry point
 ├── package.json
 └── README.md
 ```

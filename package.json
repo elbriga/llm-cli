@@ -1,6 +1,12 @@
 {
   "name": "llm-cli",
   "version": "0.1.0",
+  "description": "A CLI for interacting with LLMs with built-in tool support",
+  "main": "src/index.ts",
+  "bin": {
+    "llm-cli": "./bin/llm-cli.js"
+  },
+  "preferGlobal": true,
   "scripts": {
     "start": "tsx src/index.ts"
   },
@@ -8,11 +14,24 @@
     "axios": "^1.13.2",
     "chalk": "^5.6.2",
     "glob": "^13.0.0",
-    "ora": "^9.0.0"
-  },
-  "devDependencies": {
-    "ts-node": "^10.9.2",
+    "ora": "^9.0.0",
     "tsx": "^4.21.0",
     "typescript": "^5.6.0"
-  }
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "keywords": [
+    "llm",
+    "cli",
+    "deepseek",
+    "ollama",
+    "chatgpt",
+    "tools"
+  ],
+  "author": "Gabriel Lour <gabrielortizlour@gmail.com>",
+  "license": "GPL"
 }
