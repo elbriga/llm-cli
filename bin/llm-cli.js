@@ -4,8 +4,6 @@ const path = require('path');
 
 // Resolve the package root directory (where package.json is)
 const packageRoot = path.join(__dirname, '..');
-// Change working directory to package root so that relative paths in the code work
-process.chdir(packageRoot);
 
 // Find tsx executable in node_modules/.bin
 const tsxPath = 'tsx';//path.join(__dirname, 'node_modules', '.bin', 'tsx');
